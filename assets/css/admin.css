@@ -1,0 +1,23 @@
+.intake-display-wrapper {
+  font-family: monospace;
+  background: #f6f7f7;
+  padding: 15px;
+  border-left: 4px solid #0056b3;
+}
+.intake-group {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #ccd0d4;
+}
+.intake-label {
+  font-weight: bold;
+  color: #1d2327;
+  text-transform: uppercase;
+  font-size: 11px;
+  display: inline-block;
+  width: 250px;
+}
+.intake-value {
+  color: #2c3338;
+  font-size: 13px;
+}
