@@ -1,0 +1,228 @@
+/* Container Box Frame */
+.cree-form-container {
+  max-width: 750px !important;
+  margin: 30px auto !important;
+  background: #ffffff !important;
+  padding: 40px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08) !important;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  box-sizing: border-box !important;
+}
+
+/* Clear Headings Formatting */
+.cree-form-container h1 {
+  font-size: 26px !important;
+  color: #0056b3 !important;
+  margin-bottom: 25px !important;
+  text-align: center !important;
+  border-bottom: 3px solid #f0f2f5 !important;
+  padding-bottom: 15px !important;
+  text-transform: none !important;
+}
+
+.cree-form-container h2 {
+  font-size: 18px !important;
+  color: #1d2327 !important;
+  margin: 30px 0 15px 0 !important;
+  padding-bottom: 5px !important;
+  border-bottom: 1px solid #e0e0e0 !important;
+  text-transform: none !important;
+}
+
+/* Force Flex Rows to sit horizontally side-by-side */
+.cree-form-container .form-row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 20px !important;
+  margin-bottom: 15px !important;
+  width: 100% !important;
+}
+
+.cree-form-container .form-group {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1;
+  min-width: 150px !important;
+}
+
+.cree-form-container label {
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  margin-bottom: 6px !important;
+  color: #1d2327 !important;
+}
+
+/* Target fields explicitly to kill theme paper underline styles */
+.cree-form-container form input[type="text"],
+.cree-form-container form input[type="date"],
+.cree-form-container form input[type="tel"],
+.cree-form-container form input[type="email"],
+.cree-form-container form textarea {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  padding: 10px 12px !important;
+  border: 1px solid #8c8f94 !important;
+  border-radius: 4px !important;
+  font-size: 15px !important;
+  color: #2c3338 !important;
+  background-color: #ffffff !important;
+  box-sizing: border-box !important;
+  box-shadow: none !important;
+}
+
+/* Active Highlight Focus */
+.cree-form-container form input:focus,
+.cree-form-container form textarea:focus {
+  border-color: #2271b1 !important;
+  box-shadow: 0 0 0 2px rgba(34, 113, 177, 0.3) !important;
+  outline: none !important;
+}
+
+.cree-form-container .full-width-textarea {
+  display: flex !important;
+  flex-direction: column !important;
+  margin-bottom: 15px !important;
+  width: 100% !important;
+}
+
+/* Modern Rounded Layout background for Multi-check Radio bars */
+.cree-form-container .checkbox-group {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 15px !important;
+  background: #f6f7f7 !important;
+  padding: 12px 15px !important;
+  border-radius: 6px !important;
+  margin: 15px 0 !important;
+  align-items: center !important;
+}
+
+.cree-form-container .checkbox-item {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.cree-form-container .checkbox-item input[type="radio"] {
+  margin: 0 6px 0 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  flex-shrink: 0 !important;
+}
+
+.cree-form-container .checkbox-item label {
+  margin-bottom: 0 !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+}
+
+/* Yellow Highlighted Signature panel */
+.cree-form-container .signature-section {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 20px !important;
+  background: #fffcf0 !important;
+  border: 1px solid #e6b800 !important;
+  padding: 20px !important;
+  border-radius: 6px !important;
+  margin-top: 25px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Button layout fixes */
+.cree-form-container .submit-btn-container {
+  margin-top: 30px !important;
+  text-align: right !important;
+  width: 100% !important;
+}
+
+.cree-form-container .submit-btn {
+  background: #0056b3 !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 12px 30px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+}
+
+.cree-form-container .submit-btn:hover {
+  background: #004085 !important;
+}
+
+/* Mobile Breakpoint rules */
+@media (max-width: 600px) {
+  .cree-form-container {
+    padding: 20px !important;
+  }
+  .cree-form-container .form-row,
+  .cree-form-container .signature-section {
+    flex-direction: column !important;
+    gap: 15px !important;
+  }
+}
+
+/* Substance Abuse Intake Form */
+.substance-row {
+  margin-bottom: 15px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+.box-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+/* Hide the actual radio button */
+.box-group input[type="radio"] {
+  display: none;
+}
+
+/* Style the label as a box */
+.box-button {
+  flex: 1; /* Makes all buttons equal width */
+  text-align: center;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #f9f9f9;
+  transition: all 0.2s;
+}
+
+/* Highlight the box when selected */
+.box-group input[type="radio"]:checked + .box-button {
+  background: #0073aa;
+  color: white;
+  border-color: #0073aa;
+}
+.form-group-compact {
+  flex: 1; /* Allow them to grow */
+  max-width: 100px; /* Lock them at a max size instead of an absolute size */
+}
+.substance-comparison-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.box-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Force the "Lifetime" and "Past Year" labels to be the same width */
+.box-group small {
+  display: inline-block;
+  width: 100px;
+  /* font-weight: bold; */
+}

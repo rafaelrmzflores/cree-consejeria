@@ -14,53 +14,50 @@
 * Text Domain: cree-consejeria-cfm
 * Domain Path: /languages
 */
-/*
-CREE Consejeria CFM is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 2 of the License, or
-any later version.
- 
-CREE Consejeria CFM is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU General Public License for more details.
- 
-You should have received a copy of the GNU General Public License
-along with CREE Consejeria CFM. If not, see https://www.gnu.org/licenses/gpl-2.0.html.
-*/
 
 if ( ! defined( 'ABSPATH' ) ) {
-	exit; // Exit if accessed directly
+    exit; // Exit if accessed directly
 }
 
 if( !class_exists( 'CREE_Consejeria_CFM' )){
 
-	class CREE_Consejeria_CFM{
+    class CREE_Consejeria_CFM{
 
-		public function __construct(){
+        public function __construct(){
 
-			$this->define_constants(); 
-            			
-		}
+            $this->define_constants();
 
-		public function define_constants(){
-            // Path/URL to root of this plugin, with trailing slash.
-			define ( 'CREE_CFM_PATH', plugin_dir_path( __FILE__ ) );
-            define ( 'CREE_CFM_URL', plugin_dir_url( __FILE__ ) );
-            define ( 'CREE_CFM_VERSION', '1.0.0' );
-		}
+            require_once CREE_CONSEJERIA_CFM_PATH . 'post-types/class.cree-consejeria-cpt.php';
+            $Cree_Consejeria_Post_Type = new CREE_Consejeria_Post_Type();
+
+            add_action('admin_enqueue_scripts', [$this, 'register_admin_styles'], 999);
+
+            require_once CREE_CONSEJERIA_CFM_PATH . 'shortcodes/class.cree-consejeria-shortcode.php';
+            $Cree_Consejeria_Shortcode = new CREE_Consejeria_Shortcode();
+
+            add_action('wp_enqueue_scripts', [$this, 'register_wp_styles'], 999);
+
+            add_action('wp_ajax_cree_submit_intake_form', [$this, 'cree_ajax_intake_form_handler']);
+            add_action('wp_ajax_nopriv_cree_submit_intake_form', [$this, 'cree_ajax_intake_form_handler']);
+                        
+        }
+
+        public function define_constants(){
+            define ( 'CREE_CONSEJERIA_CFM_PATH', plugin_dir_path( __FILE__ ) );
+            define ( 'CREE_CONSEJERIA_CFM_URL', plugin_dir_url( __FILE__ ) );
+            define ( 'CREE_CONSEJERIA_CFM_VERSION', '1.0.0' );
+        }
 
         /**
          * Activate the plugin
          */
         public static function activate(){
             
-        update_option('rewrite_rules', '' );
+            update_option('rewrite_rules', '' );
 
             global $wpdb;
 
             $table_name = $wpdb->prefix . 'cree_consejeria_client_forms_master';
-
             $charset_collate = $wpdb->get_charset_collate();
 
             $cree_consejeria_cfm_db_version = get_option( 'cree_consejeria_cfm_db_version' );
@@ -79,13 +76,15 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
                     signature varchar(255) DEFAULT NULL,
                     status varchar(20) DEFAULT 'complete',
                     signature_date date DEFAULT NULL,
+                    user_ip varchar(45) DEFAULT NULL,
                     created_at timestamp DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY  (id),
                     KEY wp_id (wp_id),
                     KEY form_type (form_type),
                     KEY client_name (client_name),
                     KEY dob (dob),
-                    KEY status (status)
+                    KEY status (status),
+                    KEY user_ip (user_ip)
                     ) $charset_collate;";
 
                 require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
@@ -96,7 +95,6 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
                 update_option( 'cree_consejeria_cfm_db_version', '1.0.0' );
             }
 
-            // Define the pages to check and create
             $pages_to_create = array(
                 array(
                     'slug'       => 'registration-short-form',
@@ -140,13 +138,15 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
                 ),
             );
 
-            // Get current user ID once outside the loop to improve efficiency
+            // FIX: Force inclusion of pluggable user features to avoid Fatal Errors during activation context
+            if ( ! function_exists( 'wp_get_current_user' ) ) {
+                require_once ABSPATH . 'wp-includes/pluggable.php';
+            }
+
             $current_user_id = wp_get_current_user()->ID;
 
-            // Loop through and programmatically generate pages
             foreach ( $pages_to_create as $page_data ) {
                 
-                // Check if the page already exists
                 $page_exists = $wpdb->get_row(
                     $wpdb->prepare(
                         "SELECT post_name FROM $wpdb->posts WHERE post_name = %s AND post_type = 'page'",
@@ -161,13 +161,89 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
                         'post_status'  => 'publish',
                         'post_author'  => $current_user_id,
                         'post_type'    => 'page',
-                        'post_content' => '<!-- wp:shortcode -->[cree_consejeria_intake_form type="' . $page_data['form_type'] . '"] <!-- /wp:shortcode -->'
+                        'post_content' => '[cree_consejeria_intake_form type="' . $page_data['form_type'] . '"]'
                     );
                     
-                    $page_id = wp_insert_post( $page );  
+                    wp_insert_post( $page );  
                 }
             }
+        }
 
+        public function register_admin_styles($hook)
+        {
+            $cree_consejeria_admin_css_path = CREE_CONSEJERIA_CFM_PATH . 'assets/css/admin.css';
+            $cree_consejeria_admin_css_url  = CREE_CONSEJERIA_CFM_URL . 'assets/css/admin.css';
+            $cree_consejeria_admin_css_version = file_exists($cree_consejeria_admin_css_path) ? filemtime($cree_consejeria_admin_css_path) : false;
+
+            wp_register_style(
+                'cree-consejeria-admin-css',
+                $cree_consejeria_admin_css_url,
+                [],
+                $cree_consejeria_admin_css_version
+            );
+        }
+
+        public function register_wp_styles($hook)
+        {
+            $cree_consejeria_form_styles_css_path = CREE_CONSEJERIA_CFM_PATH . 'assets/css/form-styles.css';
+            $cree_consejeria_form_styles_css_url  = CREE_CONSEJERIA_CFM_URL . 'assets/css/form-styles.css';
+            $cree_consejeria_form_styles_css_version = file_exists($cree_consejeria_form_styles_css_path) ? filemtime($cree_consejeria_form_styles_css_path) : false;
+
+            wp_register_style(
+                'cree-consejeria-form-styles-css',
+                $cree_consejeria_form_styles_css_url,
+                array(),
+                $cree_consejeria_form_styles_css_version
+            );
+
+            $cree_consejeria_form_handler_js_path = CREE_CONSEJERIA_CFM_PATH . 'js/form-handler.js';
+            $cree_consejeria_form_handler_js_url  = CREE_CONSEJERIA_CFM_URL . 'js/form-handler.js';
+            $cree_consejeria_form_handler_js_version = file_exists( $cree_consejeria_form_handler_js_path ) ? filemtime( $cree_consejeria_form_handler_js_path ) : false;
+
+            wp_register_script(
+                'cree-consejeria-form-handler-js', 
+                $cree_consejeria_form_handler_js_url,
+                array( 'jquery' ),
+                $cree_consejeria_form_handler_js_version,
+                true
+            );
+
+            wp_localize_script( 
+                'cree-consejeria-form-handler-js',
+                'CREE_INTAKE_FORM',
+                array(
+                    'ajax_url' => admin_url( 'admin-ajax.php' ),
+                    'nonce'    => wp_create_nonce( 'cree_secure_form_submission' )
+                )
+            );
+        }
+
+        public function cree_ajax_intake_form_handler() {
+    
+            check_ajax_referer( 'cree_secure_form_submission', 'nonce' );
+
+            if ( empty( $_POST['form_data'] ) || ! is_array( $_POST['form_data'] ) ) {
+                wp_send_json_error( array( 'message' => __( 'Invalid data array payload received.', 'cree-consejeria' ) ) );
+            }
+
+            if ( defined( 'CREE_CONSEJERIA_CFM_PATH' ) && file_exists( CREE_CONSEJERIA_CFM_PATH . 'functions/cree_consejeria_functions.php' ) ) {
+                require_once CREE_CONSEJERIA_CFM_PATH . 'functions/cree_consejeria_functions.php';
+            }
+
+            $raw_data = map_deep( $_POST['form_data'], 'stripslashes' );
+            $payload  = array_map( 'sanitize_text_field', $raw_data );
+
+            $payload['user_ip'] = ! empty( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( $_SERVER['REMOTE_ADDR'] ) : '';
+
+            $result = cree_consejeria_handle_form_submission( $payload );
+
+            if ( is_wp_error( $result ) ) {
+                wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+            } else {
+                wp_send_json_success( array( 'message' => __( 'Your intake form has been securely submitted and encrypted successfully.', 'cree-consejeria' ) ) );
+            }
+
+            wp_die();
         }
        
         /**
@@ -175,42 +251,33 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
          */
         public static function deactivate(){
             flush_rewrite_rules();
-            // unregister_post_type ('cree-client-intake');
         }        
 
         /**
          * Uninstall the plugin
+         * FIX: Switched to public static function to be valid within register_uninstall_hook
          */
         public static function uninstall(){
-
             delete_option('cree_consejeria_cfm_db_version');
+            
             global $wpdb;
             $wpdb->query(
                 "DELETE FROM $wpdb->posts WHERE post_name IN ('registration-short-form', 'substance-abuse-form', 'psychosocial-evaluation-form', 
-                'aviso-de-practicas-de-privacidad', 
-                'consentimiento-informado-para-psicoterapia', 
-                'politicas-de-la-practica', 'consentimiento_informado_para_terapia_en_linea', 'consentimiento-para-divulgacion-de-informacion') AND post_type = 'page'"
-            );
-            $wpdb->query(
-                "DELETE FROM {$wpdb->prefix}cree_consejeria_client_forms_master"
+                'aviso-de-practicas-de-privacidad', 'consentimiento-informado-para-psicoterapia', 
+                'politicas-de-la-practica', 'consentimiento-informado-para-terapia-en-linea', 'consentimiento-para-divulgacion-de-informacion') AND post_type = 'page'"
             );
             $wpdb->query(
                 "DROP TABLE IF EXISTS {$wpdb->prefix}cree_consejeria_client_forms_master"
             );
-
         }       
-
-	}
+    }
 }
 
 // Plugin Instantiation
-if (class_exists( 'CREE_Consejeria_CFM' )){
-
-    // Installation and uninstallation hooks
-    register_activation_hook( __FILE__, array( 'CREE_Consejeria_CFM', 'activate'));
-    register_deactivation_hook( __FILE__, array( 'CREE_Consejeria_CFM', 'deactivate'));
+if ( class_exists( 'CREE_Consejeria_CFM' ) ){
+    register_activation_hook( __FILE__, array( 'CREE_Consejeria_CFM', 'activate' ) );
+    register_deactivation_hook( __FILE__, array( 'CREE_Consejeria_CFM', 'deactivate' ) );
     register_uninstall_hook( __FILE__, array( 'CREE_Consejeria_CFM', 'uninstall' ) );
 
-    // Instatiate the plugin class
     $cree_consejeria_cfm = new CREE_Consejeria_CFM(); 
 }
