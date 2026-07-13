@@ -226,3 +226,27 @@
   width: 100px;
   /* font-weight: bold; */
 }
+/* Contenedor principal de la lista */
+.cree-records-list {
+  margin-bottom: 30px;
+  padding-left: 25px;
+  line-height: 2;
+  color: #444;
+  list-style-type: disc;
+}
+
+/* Elementos de lista estándar */
+.cree-records-list li {
+  padding: 8px;
+}
+
+/* Elemento especial de divulgación completa (Último li) */
+.cree-records-list li.full-disclosure {
+  background: #fff5f5;
+  padding: 8px;
+  /* color: #bd2130;
+  font-weight: bold;
+  line-height: 1.6;
+  margin-top: 10px;
+  list-style-position: inside; */
+}

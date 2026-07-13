@@ -251,13 +251,15 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
         </div>
 
         <div class="signature-section">
-            <div class="form-group">
-                <label for="signature">Signature</label>
-                <input type="text" name="signature" id="signature" required placeholder="Type Name">
-            </div>
-            <div class="form-group">
-                <label for="sign_date">Date</label>
-                <input type="date" name="sign_date" id="sign_date" required>
+            <div class="form-row" style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 2.5;">
+                    <label for="signature">Signature</label>
+                    <input type="text" name="signature" id="signature" required placeholder="Type Name">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="sign_date">Date</label>
+                    <input type="date" name="sign_date" id="sign_date" required>
+                </div>
             </div>
         </div>
 

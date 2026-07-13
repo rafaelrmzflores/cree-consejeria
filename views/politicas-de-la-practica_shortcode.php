@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
         <div class="therapist-badge-info" style="background: #f7f9fa; border-left: 4px solid #0056b3; padding: 15px; margin-bottom: 25px; font-size: 0.9em; color: #555;">
             <strong>Agencia:</strong> CREE Consejeria<br>
             <strong>Dirección:</strong> 1219 E Broadway St., Sweetwater, TX 79556 • Abilene Christian University Alumni<br>
-            <strong>Contacto:</strong> 325-219-4039 | Rafael Ramirez (Licencia LPC-A #90612)
+            <strong>Contacto:</strong> 325-219-4039 | Rafael Ramírez (Licencia LPC-A #90612)
         </div>
 
         <h2>Citas y Cancelaciones</h2>
@@ -146,14 +146,16 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
         </div>
 
         <div class="signature-section">
-            <div class="form-group">
-                <label for="signature">Firma Digital (Escriba su Nombre Completo)</label>
-                <input type="text" name="signature" id="signature" placeholder="Ej. Juan Pérez" required>
-            </div>
-            <div class="form-group">
-                <label for="sign_date">Fecha de la Firma</label>
-                <input type="date" name="sign_date" id="sign_date" required>
-            </div>
+            <div class="form-row" style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 2.5;">
+                    <label for="signature">Firma Digital (Escriba su Nombre Completo)</label>
+                    <input type="text" name="signature" id="signature" placeholder="Ej. Juan Pérez" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="sign_date">Fecha de la Firma</label>
+                    <input type="date" name="sign_date" id="sign_date" required>
+                </div>
+            <div>
         </div>
 
         <div class="submit-btn-container" style="margin-top: 30px;">

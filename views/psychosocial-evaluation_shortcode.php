@@ -15,24 +15,27 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
           <div class="form-row">
 
-            <div class="form-group" style="flex: 2;">
+            <div class="form-group" style="flex: 2.5;">
                 <label for="client_name">Name</label>
                 <input type="text" id="client_name" name="client_name">
             </div>
             
             <div class="form-group">
                 <label for="dob">Date of Birth</label>
-                <input type="date" id="dob" name="dob">
+                <input type="date" id="dob" name="dob" required>
             </div>
 
         </div>
 
         <div class="form-row">
-            <div class="form-group">
+            <div class="form-group" style="flex: 2.5;">
                 <label for="email">Email</label>
-                <input type="email" id="email" name="email" style="flex: 2;">
+                <input type="email" id="email" name="email" style="flex: 2;" required>
             </div>
-            <div class="form-group"><label>Age</label><input type="number" name="age" min="0" max="120"></div>
+            <div class="form-group" style="flex: 1;">
+                <label>Age</label>
+                <input type="text" id="age" name="age" readonly>
+            </div>
         </div>
 
         <h2>Family History</h2>
@@ -40,7 +43,14 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             <div class="form-group"><label>Biological Father's Name</label><input type="text" name="bio_father"> </div>
             <div class="form-group"><label>Biological Mother's Name</label><input type="text" name="bio_mother"></div>
         </div>
-        <div class="form-group"><label>Age at parent's divorce</label><input type="number" name="age_divorce" style="width: 45%;"></div>
+
+        <div class="form-row">
+            <div class="form-group" >
+                <label for="age_divorce">Age at parent's divorce</label>
+                <input type="number" name="age_divorce" id="age_divorce" min="0" max="100" style="width: 47%;">
+            </div>
+        </div>
+
         <div class="form-row">
             <div class="form-group"><label>Stepfather</label><input type="text" name="stepfather"></div>
             <div class="form-group"><label>Stepmother</label><input type="text" name="stepmother"></div>
@@ -91,16 +101,23 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
         <h2>Medical & Mental Health</h2>
         <div class="form-row">
-            <div class="form-group"><label>Last physical</label><input type="date" name="last_physical"></div>
-            <div class="form-group"><label>Last surgery/Reason</label><input type="text" name="last_surgery"></div>
+            <div class="form-group" style="flex: 1;">
+                <label>Last physical</label>
+                <input type="date" name="last_physical">
+            </div>
+            <div class="form-group" style="flex: 2.5;">
+                <label>Last surgery/Reason</label>
+                <input type="text" name="last_surgery">
+            </div>
         </div>
         <div class="form-group"><label>Severe illness (If yes, when?)</label><input type="text" name="severe_illness"></div>
         <div class="form-group"><label>Serious injuries/Broken bones (If yes, when?)</label><input type="text" name="injuries"></div>
         <div class="form-group"><label>Seizures/Convulsions (Cause?)</label><input type="text" name="seizures"></div>
         <div class="form-group"><label>Pregnancy/Miscarriage/Abortion (Chronological dates)</label><textarea name="pregnancy_history"></textarea></div>
-        <div class="form-row">
-            <div class="form-group"><label>Special Diet</label><input type="text" name="diet"></div>
-            <div class="form-group"><label>Height/Weight</label><input type="text" name="ht_wt"></div>
+        <div class="form-row" style="display: flex; gap: 15px;">
+            <div class="form-group" style="flex: 4;"><label>Special Diet</label><input type="text" name="diet"></div>
+            <div class="form-group" style="flex: 1;"><label>Height</label><input type="text" name="height"></div>
+            <div class="form-group" style="flex: 1;"><label>Weight</label><input type="text" name="weight"></div>
         </div>
         <div class="form-group"><label>Allergies</label><input type="text" name="allergies"></div>
         <div class="form-group"><label>Current Meds (Strengths/Dosages)</label><textarea name="meds"></textarea></div>
@@ -171,13 +188,15 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
         <div class="form-group"><label>Other addictive behaviors (Food, Porn, Gaming)?</label><textarea name="other_addictions"></textarea></div>
 
          <div class="signature-section">
-            <div class="form-group">
-                <label for="signature">Signature</label>
-                <input type="text" name="signature" id="signature" required placeholder="Type Name">
-            </div>
-            <div class="form-group">
-                <label for="sign_date">Date</label>
-                <input type="date" name="sign_date" id="sign_date" required>
+            <div class="form-row" style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 2.5;">
+                    <label for="signature">Signature</label>
+                    <input type="text" name="signature" id="signature" required placeholder="Type Name">
+                </div>
+                <div class="form-group">
+                    <label for="sign_date">Date</label>
+                    <input type="date" name="sign_date" id="sign_date" required>
+                </div>
             </div>
         </div>
 

@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
         <h1>Consentimiento Informado para Psicoterapia</h1>
         
         <div class="therapist-badge-info" style="background: #f7f9fa; border-left: 4px solid #0056b3; padding: 15px; margin-bottom: 25px; font-size: 0.9em; color: #555;">
-            <strong>Terapeuta:</strong> Rafael Ramirez (Licencia LPC-A #906126)<br>
+            <strong>Terapeuta:</strong> Rafael Ramírez (Licencia LPC-A #906126)<br>
             <strong>Centro:</strong> CREE Consejeria <br>
             <strong>Contacto:</strong> (325) 219-4039
         </div>
@@ -59,7 +59,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
         <h2>Sobre el Terapeuta</h2>
         <p>
-            Rafael Ramirez es terapeuta matrimonial y familiar y consejero autorizado en dependencia química. Trabaja en diversas áreas, incluyendo la superación de adicciones y la atención a niños, individuos, parejas y familias, con el fin de fomentar cambios basados en principios divinos en la vida de las personas a las que asesora. El Sr. Hall obtuvo su maestría en Terapia Matrimonial y Familiar en la Abilene Christian University. Cuenta con casi cinco años de práctica privada en CREE Consejeria.
+            Rafael Ramírez es terapeuta matrimonial y familiar y consejero autorizado en dependencia química. Trabaja en diversas áreas, incluyendo la superación de adicciones y la atención a niños, individuos, parejas y familias, con el fin de fomentar cambios basados en principios divinos en la vida de las personas a las que asesora. El Sr. Hall obtuvo su maestría en Terapia Matrimonial y Familiar en la Abilene Christian University. Cuenta con casi cinco años de práctica privada en CREE Consejeria.
         </p>
 
         <h2>Información de Identificación del Cliente</h2>
@@ -96,13 +96,15 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
         </div>
 
         <div class="signature-section">
-            <div class="form-group">
-                <label for="signature">Firma Digital (Escriba su Nombre Completo)</label>
-                <input type="text" name="signature" id="signature" placeholder="Ej. Juan Pérez" required>
-            </div>
-            <div class="form-group">
-                <label for="sign_date">Fecha de la Firma</label>
-                <input type="date" name="sign_date" id="sign_date" required>
+            <div class="form-row" style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 2.5;">
+                    <label for="signature">Firma Digital (Escriba su Nombre Completo)</label>
+                    <input type="text" name="signature" id="signature" placeholder="Ej. Juan Pérez" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="sign_date">Fecha de la Firma</label>
+                    <input type="date" name="sign_date" id="sign_date" required>
+                </div>
             </div>
         </div>
 
