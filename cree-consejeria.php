@@ -240,7 +240,32 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
             if ( is_wp_error( $result ) ) {
                 wp_send_json_error( array( 'message' => $result->get_error_message() ) );
             } else {
-                wp_send_json_success( array( 'message' => __( 'Your intake form has been securely submitted and encrypted successfully.', 'cree-consejeria' ) ) );
+
+                // 1. Obtener el form_type de los datos sanitizados
+                $form_type = ! empty( $payload['form_type'] ) ? $payload['form_type'] : '';
+
+                // 2. Mapear el slug técnico del formulario a un nombre legible para el usuario
+                $form_names = array(
+                    'substance_abuse_intake' => __( 'Substance Abuse Intake', 'cree-consejeria' ),
+                    'aviso_de_practicas_de_privacidad' => __( 'Aviso de Prácticas de Privacidad', 'cree-consejeria' ),
+                    'consentimiento_informado_para_psicoterapia' => __( 'Consentimiento Informado para Psicoterapia', 'cree-consejeria' ),
+                    'politicas_de_la_practica' => __( 'Políticas de la Práctica', 'cree-consejeria' ),
+                    'consentimiento_informado_para_terapia_en_linea' => __( 'Consentimiento Informado para Terapia en Línea', 'cree-consejeria' ),
+                    'consentimiento_para_divulgacion_de_informacion' => __( 'Consentimiento para Divulgación de Información', 'cree-consejeria' ),
+                    'registration_short_form' => __( 'Registration Short Form', 'cree-consejeria' ),
+                    'psychosocial_evaluation' => __( 'Psychosocial Evaluation', 'cree-consejeria' )
+                );
+
+                // 3. Obtener el nombre legible, o usar un fallback genérico si no coincide ninguno
+                $friendly_name = isset( $form_names[ $form_type ] ) ? $form_names[ $form_type ] : __( 'intake', 'cree-consejeria' );
+
+                $success_message = sprintf(
+                    /* translators: %s: El nombre legible del formulario (ej. Substance Abuse Intake) */
+                    __( 'Your %s form has been securely submitted and encrypted successfully.', 'cree-consejeria' ),
+                    $friendly_name
+                );
+
+                wp_send_json_success( array( 'message' => $success_message ) );
             }
 
             wp_die();

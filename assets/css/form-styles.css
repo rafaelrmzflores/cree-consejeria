@@ -253,3 +253,12 @@
 .form-group.is-hidden {
   display: none !important;
 }
+/* Cuando el formulario se envía con éxito... */
+.cree-form-container.form-submitted form > * {
+  display: none !important;
+}
+
+/* ...forzamos que ÚNICAMENTE el mensaje de éxito permanezca visible y se muestre */
+.cree-form-container.form-submitted #form-response-message {
+  display: block !important;
+}

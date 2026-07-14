@@ -155,11 +155,11 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                     <label for="sign_date">Fecha de la Firma</label>
                     <input type="date" name="sign_date" id="sign_date" required>
                 </div>
-            <div>
+            </div>
         </div>
 
         <div class="submit-btn-container" style="margin-top: 30px;">
-            <button type="submit" class="submit-btn">Aceptar y Enviar Políticas</button>
+            <button type="submit" class="submit-btn">Enviar Políticas</button>
         </div>
         
         <div id="form-response-message" style="margin-top: 20px; font-weight: bold; text-align: center;"></div>

@@ -201,7 +201,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
         </div>
 
         <div class="submit-btn-container" style="margin-top: 20px;">
-            <button type="submit" class="submit-btn">Submit Substance Intake</button>
+            <button type="submit" class="submit-btn">Submit Evaluation</button>
         </div>
         <div id="form-response-message" style="margin-top:20px; font-weight:bold; text-align:center;"></div>
         

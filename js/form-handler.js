@@ -76,6 +76,49 @@ jQuery(document).ready(function ($) {
     var $submitButton = $form.find(".submit-btn");
     var $responseMsgContainer = $("#form-response-message");
 
+    // ==========================================
+    // 🧪 DETECCIÓN DE PRUEBA (Antes de enviar)
+    // ==========================================
+    var formType = $form.find('input[name="form_type"]').val();
+    var buttonText = "Submit Form";
+    var formTitle = $form.find('input[name="form_title"]').val();
+
+    switch (formType) {
+      case "substance_abuse_intake":
+        buttonText = "Submit Intake";
+        break;
+      case "aviso_de_practicas_de_privacidad":
+        buttonText = "Enviar Acuse de Privacidad";
+        break;
+      case "consentimiento_informado_para_psicoterapia":
+        buttonText = "Enviar Consentimiento";
+        break;
+      case "politicas_de_la_practica":
+        buttonText = "Enviar Políticas";
+        break;
+      case "consentimiento_informado_para_terapia_en_linea":
+        buttonText = "Enviar Consentimiento";
+        break;
+      case "consentimiento_para_divulgacion_de_informacion":
+        buttonText = "Enviar Autorización";
+        break;
+      case "registration_short_form":
+        buttonText = "Submit Registration";
+        break;
+      case "psychosocial_evaluation":
+        buttonText = "Submit Evaluation";
+        break;
+      default:
+        buttonText = "Submit Form";
+    }
+
+    // Estas líneas te dirán exactamente en la consola del navegador qué se detectó al enviar
+    console.log("=== PRUEBA DE ENVÍO ===");
+    console.log("Formulario detectado:", formType);
+    console.log("Texto del botón restaurado si falla:", buttonText);
+    console.log("Título del formulario:", formTitle);
+    console.log("=======================");
+
     // Prevent double-submissions
     $submitButton.prop("disabled", true).text("Saving Submission...");
     // UI Feedback Status: Processing State
@@ -104,16 +147,43 @@ jQuery(document).ready(function ($) {
       },
       success: function (response) {
         if (response.success) {
-          $responseMsgContainer
-            .css("color", "green")
-            .text(response.data.message);
+          // $responseMsgContainer
+          //   .css("color", "green")
+          //   .text(response.data.message);
           // Clear the form elements layout cleanly on complete success
-          // $("#clientRegistrationForm")[0].reset();
-          $form[0].reset();
-          $submitButton.prop("disabled", false).text("Submit Registration");
+          // $form[0].reset();
+          // $submitButton.prop("disabled", false).text("Submit Registration");
+
+          // 1. Ocultar todos los elementos e hijos dentro del formulario
+          // EXCEPTO el contenedor final del botón y el mensaje
+          /* $form
+            .children()
+            .not(".submit-btn-container, #form-response-message")
+            .hide(); */
+
+          // 2. Ocultar o remover el botón de envío para que no estorbe
+          //   $submitButton.hide();
+
+          // 1. Buscamos el contenedor principal (sirve para cualquier formulario)
+          var $container = $form.closest(".cree-form-container");
+
+          // 2. Añadimos la clase de estado completado
+          $container.addClass("form-submitted");
+
+          // 3. Estilizar y colocar el mensaje de éxito dentro del contenedor limpio
+          $responseMsgContainer
+            .css({
+              color: "green",
+              "background-color": "#e6f4ea",
+              padding: "15px",
+              "border-radius": "4px",
+              border: "1px solid #mx1e7b",
+              "margin-top": "20px",
+            })
+            .text(response.data.message);
         } else {
           $responseMsgContainer.css("color", "red").text(response.data.message);
-          $submitButton.prop("disabled", false).text("Submit Registration");
+          $submitButton.prop("disabled", false).text(buttonText);
         }
       },
       error: function (xhr, status, error) {
@@ -123,7 +193,7 @@ jQuery(document).ready(function ($) {
         $responseMsgContainer
           .css("color", "red")
           .text("Server link dropped. Please check connection logs.");
-        $submitButton.prop("disabled", false).text("Submit Registration");
+        $submitButton.prop("disabled", false).text(buttonText);
       },
     });
   });

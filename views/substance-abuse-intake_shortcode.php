@@ -102,29 +102,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 </div>
         <h2>History & Social</h2>
         <div class="form-row">
-            <!-- <div class="form-group">
-                <label for="drug_of_choice">Drug of choice:</label>
-                <select name="drug_of_choice" id="drug_of_choice" onchange="checkOther(this)">
-                    <option value="">-- Please select --</option>
-                    <option value="Alcohol">Alcohol</option>
-                    <option value="Cocaine">Cocaine</option>
-                    <option value="Methamphetamine">Methamphetamine</option>
-                    <option value="Tobacco">Tobacco</option>
-                    <option value="Hallucinogens">Hallucinogens</option>
-                    <option value="Inhalants">Inhalants</option>
-                    <option value="Sedatives">Sedatives</option>
-                    <option value="Prescription Opioids">Prescription Opioids</option>
-                    <option value="Street Opioids">Street Opioids</option>
-                    <option value="RX Amphetamines">RX Amphetamines</option>
-                    <option value="Other">Other (Please specify)</option>
-                </select>
-            </div>
-            <div class="form-group" id="other_drug_container" >
-                <label for="other_drug_text">Please specify:</label>
-                <input type="text" name="other_drug_text" id="other_drug_text">
-            </div> -->
-
-            <div class="form-group">
+                      <div class="form-group">
     <label for="drug_of_choice">Drug of choice:</label>
     <select name="drug_of_choice" id="drug_of_choice">
         <option value="">-- Please select --</option>
@@ -288,7 +266,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
         </div>
 
         <div class="submit-btn-container" style="margin-top: 20px;">
-            <button type="submit" class="submit-btn">Submit Substance Intake</button>
+            <button type="submit" class="submit-btn">Submit Intake</button>
         </div>
         <div id="form-response-message" style="margin-top:20px; font-weight:bold; text-align:center;"></div>
 

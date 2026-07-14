@@ -157,7 +157,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 </div>
 
         <div class="submit-btn-container" style="margin-top: 30px;">
-            <button type="submit" class="submit-btn">Enviar Autorización de Divulgación</button>
+            <button type="submit" class="submit-btn">Enviar Autorización</button>
         </div>
         
         <div id="form-response-message" style="margin-top: 20px; font-weight: bold; text-align: center;"></div>
