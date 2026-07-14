@@ -250,3 +250,6 @@
   margin-top: 10px;
   list-style-position: inside; */
 }
+.form-group.is-hidden {
+  display: none !important;
+}

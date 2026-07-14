@@ -42,6 +42,29 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
+const selectElement = document.getElementById("drug_of_choice");
+const container = document.getElementById("other_drug_container");
+const textInput = document.getElementById("other_drug_text");
+
+if (selectElement && container && textInput) {
+  function toggleOtherField() {
+    if (selectElement.value === "Other") {
+      container.classList.remove("is-hidden");
+      textInput.setAttribute("required", "required");
+    } else {
+      container.classList.add("is-hidden");
+      textInput.removeAttribute("required");
+      textInput.value = ""; // Limpia el campo si cambian de opinión
+    }
+  }
+
+  // 1. Escuchar los cambios del usuario
+  selectElement.addEventListener("change", toggleOtherField);
+
+  // 2. Ejecutar al cargar la página para sincronizar estados guardados
+  toggleOtherField();
+}
+
 jQuery(document).ready(function ($) {
   // Target the form submit button loop
   $(".cree-form-container form").on("submit", function (e) {
@@ -106,7 +129,7 @@ jQuery(document).ready(function ($) {
   });
 });
 
-function checkOther(selectElement) {
+/* function checkOther(selectElement) {
   var container = document.getElementById("other_drug_container");
   if (container) {
     if (selectElement.value === "Other") {
@@ -127,4 +150,4 @@ document.addEventListener("DOMContentLoaded", function () {
   if (container) {
     container.style.display = "none";
   }
-});
+}); */
