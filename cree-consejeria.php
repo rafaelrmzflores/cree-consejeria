@@ -68,6 +68,7 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
                 $query = "CREATE TABLE $table_name (
                     id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
                     wp_id bigint(20) unsigned NOT NULL,
+                    user_id bigint(20) unsigned DEFAULT 0,
                     form_type varchar(100) NOT NULL,
                     client_name varchar(255) DEFAULT NULL,
                     dob date DEFAULT NULL,
@@ -80,6 +81,7 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
                     created_at timestamp DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY  (id),
                     KEY wp_id (wp_id),
+                    KEY user_id (user_id),
                     KEY form_type (form_type),
                     KEY client_name (client_name),
                     KEY dob (dob),

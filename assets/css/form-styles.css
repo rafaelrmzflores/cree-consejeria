@@ -262,3 +262,24 @@
 .cree-form-container.form-submitted #form-response-message {
   display: block !important;
 }
+/* Incrementamos la especificidad combinando el contenedor y la clase del h2 */
+.cree-form-container h2.form-submitted-date {
+  text-align: center !important;
+  border-bottom: none !important;
+  box-shadow: none !important; /* Por seguridad, en caso de que un tema use sombras como línea */
+}
+
+.cree-form-message-container .message h2 {
+  font-size: 18px !important;
+  color: #1d2327 !important;
+  margin: 30px 0 15px 0 !important;
+  padding-bottom: 5px !important;
+  text-transform: none !important;
+}
+
+.cree-form-container p {
+  font-size: 20px !important;
+  color: #1d2327 !important;
+  margin-bottom: 5px !important;
+  text-align: center !important;
+}
