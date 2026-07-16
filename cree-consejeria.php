@@ -237,6 +237,14 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
 
             $payload['user_ip'] = ! empty( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( $_SERVER['REMOTE_ADDR'] ) : '';
 
+            if (isset ($_POST['form_action '])) {
+
+                $payload [' form status'] = 'complete';
+
+            } elseif (isset($_POST ['submit_final'])){
+                
+                $payload ['form_status'] = 'partial';
+            }
             $result = cree_consejeria_handle_form_submission( $payload );
 
             if ( is_wp_error( $result ) ) {

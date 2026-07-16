@@ -71,9 +71,28 @@ jQuery(document).ready(function ($) {
     // Stop standard HTML page reload
     e.preventDefault();
 
+    // Get the button that was clicked
+    var $submitButton = $(document.activeElement);
+    var buttonName = $submitButton.attr("name");
+
+    if (buttonName === "submit_final") {
+      // Handle final submission
+      console.log("Final submission");
+      // Your final submit logic here
+    } else if (buttonName === "submit_partial") {
+      // Handle partial/save submission
+      console.log("Save/partial submission");
+      // Your save logic here
+    }
+
+    var form_action =
+      buttonName === "submit_partial" ? "partial_save" : "final_submission";
+
+    console.log("FORM ACTION:", form_action);
+
     // 1. Target feedback response container
     var $form = $(this);
-    var $submitButton = $form.find(".submit-btn");
+    // var $submitButton = $form.find(".submit-btn");
     var $responseMsgContainer = $("#form-response-message");
 
     // ==========================================
@@ -144,6 +163,7 @@ jQuery(document).ready(function ($) {
         action: "cree_submit_intake_form",
         nonce: CREE_INTAKE_FORM.nonce,
         form_data: formDataObj,
+        form_action: form_action,
       },
       success: function (response) {
         if (response.success) {

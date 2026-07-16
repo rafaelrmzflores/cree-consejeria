@@ -157,6 +157,21 @@
   background: #004085 !important;
 }
 
+.cree-form-container .save-btn {
+  background: #0056b3 !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 12px 30px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+}
+
+.cree-form-container .save-btn:hover {
+  background: #004085 !important;
+}
 /* Mobile Breakpoint rules */
 @media (max-width: 600px) {
   .cree-form-container {

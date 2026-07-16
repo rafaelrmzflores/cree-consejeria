@@ -223,8 +223,10 @@ if ( $form_info && isset( $form_info['term_name'] ) )  {
                 </div>
             </div>
 
-            <div class="submit-btn-container" style="margin-top: 20px;">
-                <button type="submit" class="submit-btn">Submit Evaluation</button>
+            <div class="submit-btn-container form-actions" style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 15px;">
+                <button type="submit" name="submit_final" class="submit-btn">Submit Evaluation</button>
+                
+                <button type="submit" name="submit_partial" class="save-btn">Save Evaluation</button>
             </div>
             <div id="form-response-message" style="margin-top:20px; font-weight:bold; text-align:center;"></div>
             

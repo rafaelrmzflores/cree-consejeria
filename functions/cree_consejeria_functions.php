@@ -22,6 +22,7 @@ function cree_consejeria_handle_form_submission($payload) {
     $signature    = sanitize_text_field($payload['signature']);
     $sign_date    = isset( $payload['sign_date'] ) ? validate_html_date( sanitize_text_field( $payload['sign_date'] ), true ) : '';
     $user_ip      = sanitize_text_field($payload['user_ip']);
+    $form_status = sanitize_text_field($payload ['status ']);
 
     // 3. Create the Shadow CPT Record
     $post_args = array(
@@ -104,6 +105,35 @@ function cree_consejeria_handle_form_submission($payload) {
     //         current_time ('mysql')
     //     )
     // ));
+
+    $db_inserted = $wpdb->query($wpdb->prepare(
+        "INSERT INTO $table_name (
+            wp_id, form_type, client_name, dob, email, 
+            form_data_encrypted, 
+            signature, signature_date, user_ip
+        ) VALUES (%d, %s, %s, %s, %s, AES_ENCRYPT(%s, %s), %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            form_type = VALUES(form_type),
+            client_name = VALUES(client_name),
+            dob = VALUES(dob),
+            email = VALUES(email),
+            form_data_encrypted = VALUES(form_data_encrypted),
+            signature = VALUES(signature),
+            signature_date = VALUES(signature_date),
+            user_ip = VALUES(user_ip)",
+        array(
+            $wp_id,
+            $form_type,
+            $client_name,
+            $dob,
+            $email,
+            $json_encrypted_blob, 
+            $encryption_key,
+            $signature,
+            $sign_date,
+            $user_ip
+        )
+    ));
 
     if ($db_inserted === false) {
         wp_delete_post($wp_id, true);
