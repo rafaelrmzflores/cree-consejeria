@@ -1,6 +1,8 @@
-console.log("Form Handler JS loaded successfully!");
-
-document.addEventListener("DOMContentLoaded", function () {
+jQuery(document).ready(function ($) {
+  console.log("Form Handler JS loaded successfully!");
+  // ==========================================
+  // 1. AGE & DATE AUTOMATION
+  // ==========================================
   const dobInput = document.getElementById("dob");
   const ageInput = document.getElementById("age");
 
@@ -15,89 +17,129 @@ document.addEventListener("DOMContentLoaded", function () {
       const birthDate = new Date(dobValue);
       const today = new Date();
 
-      // Cálculo inicial de la diferencia de años
       let age = today.getFullYear() - birthDate.getFullYear();
       const monthDifference = today.getMonth() - birthDate.getMonth();
       const dayDifference = today.getDate() - birthDate.getDate();
 
-      // Ajuste si el cumpleaños no ha ocurrido este año todavía
       if (monthDifference < 0 || (monthDifference === 0 && dayDifference < 0)) {
         age--;
       }
 
-      // Asigna el valor asegurando que no sea un número negativo por error de entrada
       ageInput.value = age >= 0 ? age : 0;
     });
   }
 
-  var dateInput = document.getElementById("sign_date");
-  var witnessDateInput = document.getElementById("witness_sign_date");
+  const dateInput = document.getElementById("sign_date");
+  const witnessDateInput = document.getElementById("witness_sign_date");
+  const todayISO = new Date().toISOString().split("T")[0];
+
   if (dateInput) {
-    var today = new Date().toISOString().split("T")[0];
-    dateInput.value = today;
+    dateInput.value = todayISO;
   }
   if (witnessDateInput) {
-    var today = new Date().toISOString().split("T")[0];
-    witnessDateInput.value = today;
+    witnessDateInput.value = todayISO;
   }
-});
 
-const selectElement = document.getElementById("drug_of_choice");
-const container = document.getElementById("other_drug_container");
-const textInput = document.getElementById("other_drug_text");
+  // ==========================================
+  // 2. CONDITIONAL FIELD TOGGLES (Moved inside ready block)
+  // ==========================================
+  const selectElement = document.getElementById("drug_of_choice");
+  const container = document.getElementById("other_drug_container");
+  const textInput = document.getElementById("other_drug_text");
 
-if (selectElement && container && textInput) {
-  function toggleOtherField() {
-    if (selectElement.value === "Other") {
-      container.classList.remove("is-hidden");
-      textInput.setAttribute("required", "required");
-    } else {
-      container.classList.add("is-hidden");
-      textInput.removeAttribute("required");
-      textInput.value = ""; // Limpia el campo si cambian de opinión
+  if (selectElement && container && textInput) {
+    function toggleOtherField() {
+      if (selectElement.value === "Other") {
+        container.classList.remove("is-hidden");
+        textInput.setAttribute("required", "required");
+      } else {
+        container.classList.add("is-hidden");
+        textInput.removeAttribute("required");
+        textInput.value = "";
+      }
     }
+
+    selectElement.addEventListener("change", toggleOtherField);
+    toggleOtherField(); // Run initial check
   }
 
-  // 1. Escuchar los cambios del usuario
-  selectElement.addEventListener("change", toggleOtherField);
+  // ==========================================
+  // 3. DRAFT RECOVERY & PIPELINE INITIALIZATION
+  // ==========================================
+  const initialWpId = $("#wp_id").val();
+  console.log("Checking for draft ID:", initialWpId); // Debugging
 
-  // 2. Ejecutar al cargar la página para sincronizar estados guardados
-  toggleOtherField();
-}
+  if (initialWpId) {
+    loadDraft(initialWpId);
+  }
 
-jQuery(document).ready(function ($) {
-  // Target the form submit button loop
+  function loadDraft(wp_id) {
+    $.ajax({
+      url: CREE_INTAKE_FORM.ajax_url,
+      type: "GET",
+      data: {
+        action: "get_draft_form_data",
+        wp_id: wp_id,
+        nonce: CREE_INTAKE_FORM.nonce,
+      },
+      success: function (response) {
+        if (response.success && response.data.form_data) {
+          // 1. Point to the specific data object
+          const data = response.data.form_data;
+
+          // 2. Loop through the key-value pairs
+          $.each(data, function (name, value) {
+            const $input = $(`[name="${name}"]`);
+
+            if ($input.length) {
+              if ($input.is(":checkbox") || $input.is(":radio")) {
+                // Handle Radios and Checkboxes
+                $input
+                  .filter(`[value="${value}"]`)
+                  .prop("checked", true)
+                  .change();
+              } else if ($input.is("select")) {
+                // Handle Select boxes
+                $input.val(value).change();
+              } else {
+                // Handle Text, Textarea, Date, Hidden, etc.
+                $input.val(value).change();
+              }
+            }
+          });
+          console.log("Form hydrated successfully!");
+        }
+      },
+      error: function (xhr, status, thrownError) {
+        console.error("AJAX Failed:", status, thrownError);
+      },
+    });
+  }
+
+  // ==========================================
+  // 4. SECURE FORM SUBMISSION DISPATCHER
+  // ==========================================
   $(".cree-form-container form").on("submit", function (e) {
-    // Stop standard HTML page reload
     e.preventDefault();
 
-    // Get the button that was clicked
+    var $form = $(this);
     var $submitButton = $(document.activeElement);
-    var buttonName = $submitButton.attr("name");
 
-    if (buttonName === "submit_final") {
-      // Handle final submission
-      console.log("Final submission");
-      // Your final submit logic here
-    } else if (buttonName === "submit_partial") {
-      // Handle partial/save submission
-      console.log("Save/partial submission");
-      // Your save logic here
+    // Fallback to finding the form submit button if activeElement isn't the button
+    if (!$submitButton.is("button, input[type='submit']")) {
+      $submitButton = $form.find('button[type="submit"], input[type="submit"]');
     }
 
+    var buttonName = $submitButton.attr("name");
     var form_action =
-      buttonName === "submit_partial" ? "partial_save" : "final_submission";
+      buttonName === "submit_partial"
+        ? "partial_submission"
+        : "final_submission";
 
     console.log("FORM ACTION:", form_action);
-
-    // 1. Target feedback response container
-    var $form = $(this);
-    // var $submitButton = $form.find(".submit-btn");
     var $responseMsgContainer = $("#form-response-message");
 
-    // ==========================================
-    // 🧪 DETECCIÓN DE PRUEBA (Antes de enviar)
-    // ==========================================
+    // Form title matching suite
     var formType = $form.find('input[name="form_type"]').val();
     var buttonText = "Submit Form";
     var formTitle = $form.find('input[name="form_title"]').val();
@@ -131,22 +173,19 @@ jQuery(document).ready(function ($) {
         buttonText = "Submit Form";
     }
 
-    // Estas líneas te dirán exactamente en la consola del navegador qué se detectó al enviar
     console.log("=== PRUEBA DE ENVÍO ===");
     console.log("Formulario detectado:", formType);
     console.log("Texto del botón restaurado si falla:", buttonText);
-    console.log("Título del formulario:", formTitle);
     console.log("=======================");
 
-    // Prevent double-submissions
+    // Lock UI to prevent race condition multi-posting
     $submitButton.prop("disabled", true).text("Saving Submission...");
-    // UI Feedback Status: Processing State
     $responseMsgContainer
       .css("color", "#333")
       .text("Processing secure encryption synchronization...")
       .removeClass("error success");
 
-    // 2. Serialize all form input field metrics into an array payload
+    // Serialization
     var formDataObj = {};
     var formDataArray = $form.serializeArray();
 
@@ -154,7 +193,6 @@ jQuery(document).ready(function ($) {
       formDataObj[field.name] = field.value;
     });
 
-    // 3. Fire the real asynchronous pipeline call straight to WordPress admin-ajax
     $.ajax({
       url: CREE_INTAKE_FORM.ajax_url,
       type: "POST",
@@ -164,40 +202,24 @@ jQuery(document).ready(function ($) {
         nonce: CREE_INTAKE_FORM.nonce,
         form_data: formDataObj,
         form_action: form_action,
+        wp_id: $("#wp_id").val(),
       },
       success: function (response) {
         if (response.success) {
-          // $responseMsgContainer
-          //   .css("color", "green")
-          //   .text(response.data.message);
-          // Clear the form elements layout cleanly on complete success
-          // $form[0].reset();
-          // $submitButton.prop("disabled", false).text("Submit Registration");
+          if (response.data && response.data.wp_id) {
+            $("#wp_id").val(response.data.wp_id);
+          }
 
-          // 1. Ocultar todos los elementos e hijos dentro del formulario
-          // EXCEPTO el contenedor final del botón y el mensaje
-          /* $form
-            .children()
-            .not(".submit-btn-container, #form-response-message")
-            .hide(); */
-
-          // 2. Ocultar o remover el botón de envío para que no estorbe
-          //   $submitButton.hide();
-
-          // 1. Buscamos el contenedor principal (sirve para cualquier formulario)
           var $container = $form.closest(".cree-form-container");
-
-          // 2. Añadimos la clase de estado completado
           $container.addClass("form-submitted");
 
-          // 3. Estilizar y colocar el mensaje de éxito dentro del contenedor limpio
           $responseMsgContainer
             .css({
               color: "green",
               "background-color": "#e6f4ea",
               padding: "15px",
               "border-radius": "4px",
-              border: "1px solid #mx1e7b",
+              border: "1px solid #1e7b1e", // Fixed malformed hex value code
               "margin-top": "20px",
             })
             .text(response.data.message);
@@ -208,8 +230,7 @@ jQuery(document).ready(function ($) {
       },
       error: function (xhr, status, error) {
         console.error("Status:", status);
-        console.error("Error Text:", error);
-        console.log("Raw Server Response Payload:", xhr.responseText);
+        console.error("Raw Server Response:", xhr.responseText);
         $responseMsgContainer
           .css("color", "red")
           .text("Server link dropped. Please check connection logs.");
@@ -218,26 +239,3 @@ jQuery(document).ready(function ($) {
     });
   });
 });
-
-/* function checkOther(selectElement) {
-  var container = document.getElementById("other_drug_container");
-  if (container) {
-    if (selectElement.value === "Other") {
-      container.style.display = "block";
-      document
-        .getElementById("other_drug_text")
-        .setAttribute("required", "required");
-    } else {
-      container.style.display = "none";
-      document.getElementById("other_drug_text").removeAttribute("required");
-      document.getElementById("other_drug_text").value = "";
-    }
-  }
-}
-// Run initialization to hide it initially
-document.addEventListener("DOMContentLoaded", function () {
-  var container = document.getElementById("other_drug_container");
-  if (container) {
-    container.style.display = "none";
-  }
-}); */

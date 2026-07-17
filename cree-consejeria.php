@@ -39,6 +39,8 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
 
             add_action('wp_ajax_cree_submit_intake_form', [$this, 'cree_ajax_intake_form_handler']);
             add_action('wp_ajax_nopriv_cree_submit_intake_form', [$this, 'cree_ajax_intake_form_handler']);
+
+            add_action('wp_ajax_get_draft_form_data', [$this, 'get_draft_form_data']);
                         
         }
 
@@ -80,7 +82,7 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
                     user_ip varchar(45) DEFAULT NULL,
                     created_at timestamp DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY  (id),
-                    KEY wp_id (wp_id),
+                    UNIQUE KEY wp_id (wp_id),
                     KEY user_id (user_id),
                     KEY form_type (form_type),
                     KEY client_name (client_name),
@@ -237,14 +239,23 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
 
             $payload['user_ip'] = ! empty( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( $_SERVER['REMOTE_ADDR'] ) : '';
 
-            if (isset ($_POST['form_action '])) {
+            // Retrieve the action from the POST data
+            $form_action  = isset($_POST['form_action']) ? $_POST['form_action'] : 'final_submission';
 
-                $payload [' form status'] = 'complete';
+            // Process based on the action
+            if ($form_action === 'partial_submission') {
+                $payload['form_status'] = 'draft';
+                // Handle saving as draft/partial
+                // Example: wp_insert_post() with post_status => 'draft'
+                // wp_send_json_success(['message' => 'Draft saved successfully.']);
+            } else {
 
-            } elseif (isset($_POST ['submit_final'])){
-                
-                $payload ['form_status'] = 'partial';
+                $payload['form_status'] = 'complete';
+                // Handle final submission
+                // Example: Validate fields and save to database
+                // wp_send_json_success(['message' => 'Form submitted successfully.']);
             }
+
             $result = cree_consejeria_handle_form_submission( $payload );
 
             if ( is_wp_error( $result ) ) {
@@ -275,12 +286,59 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
                     $friendly_name
                 );
 
-                wp_send_json_success( array( 'message' => $success_message ) );
+                wp_send_json_success( array( 'message' => $success_message, 'wp_id' => $result ) );
             }
 
             wp_die();
         }
-       
+
+
+        function get_draft_form_data() {
+            global $wpdb;
+            
+            // Catch errors and send to JS instead of crashing
+            try {
+                $user_id = get_current_user_id();
+                $wp_id = isset($_GET['wp_id']) ? intval($_GET['wp_id']) : 0;
+
+                if (!$user_id) throw new Exception("Not logged in");
+                if (!$wp_id) throw new Exception("No valid WP_ID provided");
+
+                $table_name = $wpdb->prefix . 'cree_consejeria_client_forms_master';
+                $key = SECURE_AUTH_KEY;
+
+                $sql = $wpdb->prepare(
+                    "SELECT *, AES_DECRYPT(form_data_encrypted, %s) as decrypted_data 
+                    FROM $table_name WHERE wp_id = %d", 
+                    $key, 
+                    $wp_id
+                );
+
+                $row = $wpdb->get_row($sql, ARRAY_A);
+
+                if (!$row) {
+                    throw new Exception("No record found in database for ID: " . $wp_id);
+                }
+
+                // Merge column data (client_name, email, dob, etc.) 
+                // with the decrypted JSON data
+                $decrypted_json = json_decode($row['decrypted_data'], true);
+                
+                // Remove the raw blob and decrypted string to keep the response clean
+                unset($row['form_data_encrypted']);
+                unset($row['decrypted_data']);
+                
+                // Combine everything into one clean data object
+                $response_data = array_merge($row, $decrypted_json);
+
+                wp_send_json_success(['form_data' => $response_data]);
+
+            } catch (Exception $e) {
+                // Send the error message to the JS console
+                wp_send_json_error(['message' => $e->getMessage()]);
+            }
+        }
+
         /**
          * Deactivate the plugin
          */
