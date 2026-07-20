@@ -151,7 +151,7 @@ function cree_consejeria_handle_form_submission($payload) {
     $dob          = sanitize_text_field($payload['dob']);
     $email        = sanitize_email($payload['email']);
     $signature    = sanitize_text_field($payload['signature']);
-    $sign_date    = !empty($payload['sign_date']) ? sanitize_text_field($payload['sign_date']) : null;
+    $sign_date    = !empty($payload['sign_date']) ? validate_html_date(sanitize_text_field($payload['sign_date']), true) : null;
     $user_ip      = sanitize_text_field($payload['user_ip']);
     $form_status  = sanitize_text_field($payload['form_status']);
 
@@ -159,14 +159,26 @@ function cree_consejeria_handle_form_submission($payload) {
     $post_title = sprintf('%s — %s', $client_name, date('Y-m-d'));
     
     if ($wp_id > 0) {
+
         wp_update_post(['ID' => $wp_id, 'post_title' => $post_title]);
+
     } else {
-        $wp_id = wp_insert_post([
+
+        $post_args = array(
             'post_title'   => $post_title,
             'post_type'    => 'cree-client-intake',
             'post_status'  => 'private',
             'post_author'  => $current_user_id ? $current_user_id : 1,
-        ]);
+        );
+
+        $wp_id = wp_insert_post($post_args);
+
+        // $wp_id = wp_insert_post([
+        //     'post_title'   => $post_title,
+        //     'post_type'    => 'cree-client-intake',
+        //     'post_status'  => 'private',
+        //     'post_author'  => $current_user_id ? $current_user_id : 1,
+        // ]);
     }
 
     if (is_wp_error($wp_id) || $wp_id === 0) {
@@ -175,15 +187,23 @@ function cree_consejeria_handle_form_submission($payload) {
 
     // 4. Assign Taxonomy
     $term_slug = sanitize_title($form_type);
+
     if (!term_exists($term_slug, 'intake_form_type')) {
         wp_insert_term(ucwords(str_replace(['_', '-'], ' ', $form_type)), 'intake_form_type', ['slug' => $term_slug]);
+
+        // $term_label = ucwords(str_replace(['_', '-'], ' ', $form_type));
+        // wp_insert_term($term_label, 'intake_form_type', array('slug' => $term_slug));
     }
     wp_set_object_terms($wp_id, $term_slug, 'intake_form_type');
 
     // 5. Package JSON Payload
     $core_keys = ['form_type', 'client_name', 'dob', 'email', 'signature', 'sign_date', 'user_ip', 'wp_id', 'form_status', 'nonce', 'action', 'form_action'];
     $dynamic_fields = array_diff_key($payload, array_flip($core_keys));
-    $json_encrypted_blob = json_encode(array_map('sanitize_text_field', $dynamic_fields));
+
+    // $json_encrypted_blob = json_encode(array_map('sanitize_text_field', $dynamic_fields));
+
+    $sanitized_dynamic = array_map('sanitize_text_field', $dynamic_fields);
+    $json_encrypted_blob = json_encode($sanitized_dynamic);
 
     // 6. Secure Upsert to HIPAA Vault
     // Note: We use ON DUPLICATE KEY UPDATE to handle both Insert and Update in one go

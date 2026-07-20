@@ -19,11 +19,11 @@ $form_info = get_form_term_name($attributes['type']);
 
 $form_wp_id = get_form_wp_id($attributes['type']);
 
-echo "FROM_WP_ID: {$form_wp_id} <br>";
+// echo "FROM_WP_ID: {$form_wp_id} <br>";
 
 $form_status = get_form_status($form_wp_id);
 
-echo "FROM_STATUS: {$form_status}";
+// echo "FROM_STATUS: {$form_status}";
 
 if ($form_wp_id && $form_status === 'draft') {
     // Logic for resuming a draft
@@ -236,7 +236,7 @@ if ($form_wp_id && $form_status === 'draft') {
         </form>  
     </div>
     <?php
-} else if ($status === 'complete') {
+} else if ($form_status === 'complete') {
     // Logic for viewing a completed form
     ?>   
         <div class="cree-form-container message">
@@ -452,7 +452,7 @@ if ($form_wp_id && $form_status === 'draft') {
             <div class="submit-btn-container form-actions" style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 15px;">
                 <button type="submit" name="submit_final" class="submit-btn">Submit Evaluation</button>
                 
-                <button type="submit" name="submit_partial" class="save-btn">Save Evaluation</button>
+                <button type="submit" name="submit_partial" class="save-btn">Save Draft</button>
             </div>
             <div id="form-response-message" style="margin-top:20px; font-weight:bold; text-align:center;"></div>
             
