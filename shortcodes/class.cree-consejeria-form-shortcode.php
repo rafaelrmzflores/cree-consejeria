@@ -1,8 +1,12 @@
 <?php
 
-if ( ! class_exists( 'CREE_Consejeria_Shortcode' ) ) {
+if ( ! defined( 'ABSPATH' ) ) {
+    exit; // Exit if accessed directly
+}
 
-    class CREE_Consejeria_Shortcode
+if ( ! class_exists( 'CREE_Consejeria_Form_Shortcode' ) ) {
+
+    class CREE_Consejeria_Form_Shortcode
     {
         public function __construct() 
         {

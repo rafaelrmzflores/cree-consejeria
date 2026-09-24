@@ -32,13 +32,33 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
 
             add_action('admin_enqueue_scripts', [$this, 'register_admin_styles'], 999);
 
-            require_once CREE_CONSEJERIA_CFM_PATH . 'shortcodes/class.cree-consejeria-shortcode.php';
-            $Cree_Consejeria_Shortcode = new CREE_Consejeria_Shortcode();
+            require_once CREE_CONSEJERIA_CFM_PATH . 'shortcodes/class.cree-consejeria-form-shortcode.php';
+            $CREE_Consejeria_Form_Shortcode = new CREE_Consejeria_Form_Shortcode();
+
+            require_once CREE_CONSEJERIA_CFM_PATH . 'shortcodes/class.cree-consejeria-note-shortcode.php';
+            $Cree_Consejeria_Note_Shortcode = new CREE_Consejeria_Note_Shortcode();
+
+            require_once CREE_CONSEJERIA_CFM_PATH . 'shortcodes/class.cree-consejeria-client-portal-shortcode.php';
+            $Cree_Consejeria_Client_Portal = new CREE_Consejeria_Client_Portal();
+
+            require_once CREE_CONSEJERIA_CFM_PATH . 'shortcodes/class.cree-client-login-shortcode.php';
+            $Cree_Consejeria_Client_Login = new CREE_Client_Login_Shortcode();
+
+            require_once CREE_CONSEJERIA_CFM_PATH . 'includes/class-cree-security-redirects.php';
 
             add_action('wp_enqueue_scripts', [$this, 'register_wp_styles'], 999);
 
             add_action('wp_ajax_cree_submit_intake_form', [$this, 'cree_ajax_intake_form_handler']);
             add_action('wp_ajax_nopriv_cree_submit_intake_form', [$this, 'cree_ajax_intake_form_handler']);
+
+            // add_action('wp_ajax_cree_save_session_note', [$this,'cree_save_session_note' ]);
+            // add_action( 'wp_ajax_cree_get_client_notes', [$this, 'cree_ajax_get_client_notes' ]);
+            
+            add_action( 'wp_ajax_cree_add_new_client', [$this,'cree_add_new_client' ]);
+            add_action( 'wp_ajax_cree_load_client_notes', array( $this, 'ajax_load_client_notes' ) );
+            add_action( 'wp_ajax_cree_save_session_note', array( $this, 'ajax_save_session_note' ) );
+
+            add_action( 'wp_ajax_cree_get_client_form_content', array( $this,'cree_ajax_get_client_form_content' ) );
                         
         }
 
@@ -57,15 +77,16 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
 
             global $wpdb;
 
-            $table_name = $wpdb->prefix . 'cree_consejeria_client_forms_master';
+            $forms_table_name = $wpdb->prefix . 'cree_consejeria_client_forms_master';
+            $notes_table_name = $wpdb->prefix . 'cree_consejeria_session_notes';
             $charset_collate = $wpdb->get_charset_collate();
 
             $cree_consejeria_cfm_db_version = get_option( 'cree_consejeria_cfm_db_version' );
-            $table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) );
+            $forms_table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $forms_table_name ) );
 
-            if ( $table_exists !== $table_name ) {
+            if ( $forms_table_exists !== $forms_table_name ) {
 
-                $query = "CREATE TABLE $table_name (
+                $query = "CREATE TABLE $forms_table_name (
                     id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
                     wp_id bigint(20) unsigned NOT NULL,
                     form_type varchar(100) NOT NULL,
@@ -89,6 +110,29 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
 
                 require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
                 dbDelta( $query );
+
+            }
+
+            $notes_table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $notes_table_name ) );
+            
+            if ( $notes_table_exists !== $notes_table_name ) {
+
+                $query = "CREATE TABLE $notes_table_name (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    client_id bigint(20) unsigned NOT NULL, /* The WP user_id of the patient */
+                    therapist_id bigint(20) unsigned NOT NULL, /* The WP user_id of the counselor */
+                    session_date date NOT NULL,
+                    note_encrypted blob NOT NULL, /* AES_ENCRYPT storage */
+                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY  (id),
+                    KEY client_id (client_id),
+                    KEY therapist_id (therapist_id),
+                    KEY session_date (session_date)
+                ) $charset_collate;";
+
+                require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+                dbDelta( $query );
+
             }
 
             if ( empty( $cree_consejeria_cfm_db_version ) || version_compare( $cree_consejeria_cfm_db_version, '1.0.0', '<' ) ) {
@@ -135,7 +179,7 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
                     'slug'       => 'consentimiento-para-divulgacion-de-informacion',
                     'title'      => __('Consentimiento para la Divulgación de Información', 'cree-consejeria-cfm'),
                     'form_type'  => 'consentimiento_para_divulgacion_de_informacion'
-                ),
+                )
             );
 
             // FIX: Force inclusion of pluggable user features to avoid Fatal Errors during activation context
@@ -166,6 +210,33 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
                     
                     wp_insert_post( $page );  
                 }
+            }
+
+            $therapist_portal_page_exists = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT post_name FROM $wpdb->posts WHERE post_name = %s AND post_type = 'page'",
+                    'cree-therapist-portal'
+                )
+            );
+
+            $therapist_portal_page_data = array(
+                array(
+                    'slug'       => 'cree-therapist-portal',
+                    'title'      => __('CREE Portal del Terapeuta', 'cree-consejeria-cfm')
+                ),
+            );
+
+            if ( $therapist_portal_page_exists === null ) {
+                $therapist_portal_page = array(
+                    'post_title'   => $therapist_portal_page_data['title'],
+                    'post_name'    => $therapist_portal_page_data['slug'],
+                    'post_status'  => 'publish',
+                    'post_author'  => $current_user_id,
+                    'post_type'    => 'page',
+                    'post_content' => '[cree_therapist_portal]'
+                );
+                
+                wp_insert_post( $therapist_portal_page );  
             }
         }
 
@@ -214,6 +285,28 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
                 array(
                     'ajax_url' => admin_url( 'admin-ajax.php' ),
                     'nonce'    => wp_create_nonce( 'cree_secure_form_submission' )
+                )
+            );
+
+            $cree_consejeria_note_handler_js_path = CREE_CONSEJERIA_CFM_PATH . 'js/note-handler.js';
+            $cree_consejeria_note_handler_js_url  = CREE_CONSEJERIA_CFM_URL . 'js/note-handler.js';
+            $cree_consejeria_note_handler_js_version = file_exists( $cree_consejeria_note_handler_js_path ) ? filemtime( $cree_consejeria_note_handler_js_path ) : false;
+
+            wp_register_script(
+                'cree-consejeria-note-handler-js', 
+                $cree_consejeria_note_handler_js_url,
+                array( 'jquery' ),
+                $cree_consejeria_note_handler_js_version,
+                true
+            );
+
+            // FIX: Changed 'cree_secure_form_submission' to 'cree_secure_note_nonce' to match PHP verification
+            wp_localize_script( 
+                'cree-consejeria-note-handler-js',
+                'CREE_NOTE_FORM',
+                array(
+                    'ajax_url' => admin_url( 'admin-ajax.php' ),
+                    'nonce'    => wp_create_nonce( 'cree_secure_note_nonce' )
                 )
             );
         }
@@ -270,7 +363,348 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
 
             wp_die();
         }
+
+        public function cree_save_session_note() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can('edit_posts') ) {
+                wp_send_json_error('Unauthorized access.');
+            }
+
+            global $wpdb;
+            $notes_table_name = $wpdb->prefix . 'cree_consejeria_session_notes';
+            $encryption_key = SECURE_AUTH_KEY;
+
+            $client_id    = intval($_POST['client_id']);
+            $therapist_id = get_current_user_id();
+            $session_date = sanitize_text_field($_POST['session_date']);
+            $note_text    = sanitize_textarea_field($_POST['note_text']);
+
+            $inserted = $wpdb->query( $wpdb->prepare(
+                "INSERT INTO $notes_table_name (client_id, therapist_id, session_date, note_encrypted) 
+                VALUES (%d, %d, %s, AES_ENCRYPT(%s, %s))",
+                $client_id,
+                $therapist_id,
+                $session_date,
+                $note_text,
+                $encryption_key
+            ));
+
+            if ( $inserted ) {
+                wp_send_json_success('Session note securely saved.');
+            } else {
+                wp_send_json_error('Database error.');
+            }
+        }
+        
+        public function cree_ajax_get_client_notes() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( 'Unauthorized' );
+
+            global $wpdb;
+            $notes_table_name = $wpdb->prefix . 'cree_consejeria_session_notes';
+            $encryption_key = SECURE_AUTH_KEY;
+            $client_id = intval( $_POST['client_id'] );
+
+            $query = $wpdb->prepare(
+                "SELECT session_date, CAST(AES_DECRYPT(note_encrypted, %s) AS CHAR) AS decrypted_note 
+                FROM $notes_table_name 
+                WHERE client_id = %d 
+                ORDER BY session_date DESC",
+                $encryption_key,
+                $client_id
+            );
+
+            $notes = $wpdb->get_results( $query );
+
+            if ( empty( $notes ) ) {
+                wp_send_json_success( '<p>No previous notes found for this client.</p>' );
+            }
+
+            $html = '';
+            foreach ( $notes as $note ) {
+                $date = wp_date( 'F j, Y', strtotime( $note->session_date ) );
+                $html .= '<div style="background:#fff; padding:10px; border-left:4px solid #0073aa; margin-bottom:10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">';
+                $html .= '<strong>' . esc_html( $date ) . '</strong>';
+                $html .= '<p style="margin:5px 0 0 0; font-size:14px;">' . nl2br( esc_html( $note->decrypted_note ) ) . '</p>';
+                $html .= '</div>';
+            }
+
+            wp_send_json_success( $html );
+        }
+
+        /**
+         * AJAX Handler: Create a New Client User
+         */
+        public function cree_add_new_client() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+
+            if ( ! current_user_can( 'edit_posts' ) ) {
+                wp_send_json_error( 'Unauthorized permission.' );
+            }
+
+            $first_name = isset( $_POST['first_name'] ) ? sanitize_text_field( $_POST['first_name'] ) : '';
+            $last_name  = isset( $_POST['last_name'] ) ? sanitize_text_field( $_POST['last_name'] ) : '';
+            $email      = isset( $_POST['email'] ) ? sanitize_email( $_POST['email'] ) : '';
+
+            if ( empty( $first_name ) || empty( $last_name ) || empty( $email ) ) {
+                wp_send_json_error( 'Please fill out all client fields.' );
+            }
+
+            if ( ! is_email( $email ) ) {
+                wp_send_json_error( 'Invalid email address provided.' );
+            }
+
+            if ( email_exists( $email ) ) {
+                wp_send_json_error( 'A client account with this email address already exists.' );
+            }
+
+            $username        = $email;
+            $random_password = wp_generate_password( 12, false );
+
+            $user_id = wp_create_user( $username, $random_password, $email );
+
+            if ( is_wp_error( $user_id ) ) {
+                wp_send_json_error( $user_id->get_error_message() );
+            }
+
+            $display_name = trim( $first_name . ' ' . $last_name );
+
+            wp_update_user( array(
+                'ID'           => $user_id,
+                'first_name'   => $first_name,
+                'last_name'    => $last_name,
+                'display_name' => $display_name,
+                'role'         => 'subscriber'
+            ) );
+
+            wp_send_new_user_notifications( $user_id, 'user' );
+
+            wp_send_json_success( array(
+                'user_id'      => $user_id,
+                'display_name' => $display_name,
+                'email'        => $email,
+                'message'      => 'Client created successfully!'
+            ) );
+        }
        
+        public function ajax_load_client_notes() {
+            // 1. Validate Nonce & Capabilities
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+
+            if ( ! current_user_can( 'edit_posts' ) ) {
+                wp_send_json_error( 'Unauthorized permission level.' );
+            }
+
+            $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+
+            if ( ! $client_id ) {
+                wp_send_json_error( 'Invalid Client ID.' );
+            }
+
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_session_notes'; // Adjust if your table name differs
+
+            // Check if table exists before querying
+            if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table_name ) ) !== $table_name ) {
+                // Fallback: If using wp_posts CPT for notes instead of custom DB table:
+                $notes = get_posts( array(
+                    'post_type'      => 'cree_session_note',
+                    'meta_key'       => '_cree_client_id',
+                    'meta_value'     => $client_id,
+                    'posts_per_page' => -1,
+                    'orderby'        => 'date',
+                    'order'          => 'DESC'
+                ) );
+
+                if ( empty( $notes ) ) {
+                    wp_send_json_success( array( 'html' => '<p><em>No session notes recorded for this client yet.</em></p>' ) );
+                }
+
+                ob_start();
+                foreach ( $notes as $note ) {
+                    $session_date = get_post_meta( $note->ID, '_cree_session_date', true );
+                    $raw_content  = $note->post_content;
+                    
+                    // If content is encrypted, decrypt here (e.g., $raw_content = cree_decrypt_data($raw_content);)
+                    ?>
+                    <div class="cree-note-card" style="background: #ffffff; border: 1px solid #dcdcde; border-left: 4px solid #2271b1; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                        <div style="font-size: 12px; color: #646970; margin-bottom: 6px; font-weight: 600;">
+                            📅 <?php echo esc_html( $session_date ? $session_date : get_the_date( 'Y-m-d', $note ) ); ?>
+                        </div>
+                        <div style="font-size: 14px; color: #1d2327; white-space: pre-wrap;"><?php echo esc_html( $raw_content ); ?></div>
+                    </div>
+                    <?php
+                }
+                $html = ob_get_clean();
+                wp_send_json_success( array( 'html' => $html ) );
+            }
+
+            // Custom SQL query if using custom DB table
+            $results = $wpdb->get_results( $wpdb->prepare(
+                "SELECT * FROM {$table_name} WHERE client_id = %d ORDER BY session_date DESC",
+                $client_id
+            ) );
+
+            if ( empty( $results ) ) {
+                wp_send_json_success( array( 'html' => '<p><em>No session notes recorded for this client yet.</em></p>' ) );
+            }
+
+            ob_start();
+            foreach ( $results as $row ) {
+                // Decrypt note text if stored encrypted
+                $note_text = ! empty( $row->encrypted_note ) ? $row->encrypted_note : $row->note_text;
+                
+                // Example decryption check:
+                if ( function_exists( 'cree_decrypt_string' ) ) {
+                    $note_text = cree_decrypt_string( $note_text );
+                }
+                ?>
+                <div class="cree-note-card" style="background: #ffffff; border: 1px solid #dcdcde; border-left: 4px solid #2271b1; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                    <div style="font-size: 12px; color: #646970; margin-bottom: 6px; font-weight: 600;">
+                        📅 <?php echo esc_html( $row->session_date ); ?>
+                    </div>
+                    <div style="font-size: 14px; color: #1d2327; white-space: pre-wrap;"><?php echo esc_html( $note_text ); ?></div>
+                </div>
+                <?php
+            }
+            $html = ob_get_clean();
+
+            wp_send_json_success( array( 'html' => $html ) );
+        }
+
+        public function ajax_save_session_note() {
+            // 1. Validate Nonce & Permissions
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+
+            if ( ! current_user_can( 'edit_posts' ) ) {
+                wp_send_json_error( 'Unauthorized permission level.' );
+            }
+
+            // 2. Sanitize Inputs
+            $client_id    = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+            $session_date = isset( $_POST['session_date'] ) ? sanitize_text_field( $_POST['session_date'] ) : '';
+            $note_text    = isset( $_POST['note_text'] ) ? sanitize_textarea_field( $_POST['note_text'] ) : '';
+            $therapist_id = get_current_user_id();
+
+            if ( ! $client_id || empty( $session_date ) || empty( $note_text ) ) {
+                wp_send_json_error( 'Please fill in all required fields.' );
+            }
+
+            // 3. Optional Encryption (If encryption function exists)
+            if ( function_exists( 'cree_encrypt_string' ) ) {
+                $stored_note = cree_encrypt_string( $note_text );
+            } else {
+                $stored_note = $note_text;
+            }
+
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_session_notes'; // Adjust to your table name if different
+
+            // OPTION A: Custom Database Table Insertion
+            if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table_name ) ) === $table_name ) {
+                
+                $inserted = $wpdb->insert(
+                    $table_name,
+                    array(
+                        'client_id'      => $client_id,
+                        'therapist_id'   => $therapist_id,
+                        'session_date'   => $session_date,
+                        'encrypted_note' => $stored_note,
+                        'created_at'     => current_time( 'mysql' )
+                    ),
+                    array( '%d', '%d', '%s', '%s', '%s' )
+                );
+
+                if ( $inserted === false ) {
+                    wp_send_json_error( 'Database error: ' . $wpdb->last_error );
+                }
+
+                wp_send_json_success( array( 'message' => '✅ Session note saved successfully!' ) );
+            }
+
+            // OPTION B: Fallback Custom Post Type Insertion (if no custom table exists)
+            $post_id = wp_insert_post( array(
+                'post_type'    => 'cree_session_note',
+                'post_title'   => 'Session Note - Client #' . $client_id . ' - ' . $session_date,
+                'post_content' => $stored_note,
+                'post_status'  => 'publish',
+                'post_author'  => $therapist_id,
+            ) );
+
+            if ( is_wp_error( $post_id ) ) {
+                wp_send_json_error( $post_id->get_error_message() );
+            }
+
+            // Save Meta Attributes
+            update_post_meta( $post_id, '_cree_client_id', $client_id );
+            update_post_meta( $post_id, '_cree_session_date', $session_date );
+
+            wp_send_json_success( array( 'message' => '✅ Session note saved successfully!' ) );
+        }
+
+        /**
+         * AJAX Handler: Decrypt form content for the logged-in client owner
+         */
+        function cree_ajax_get_client_form_content() {
+            // 1. Verify Nonce & Login
+            check_ajax_referer( 'cree_secure_form_submission', 'security' );
+
+            if ( ! is_user_logged_in() ) {
+                wp_send_json_error( 'You must be logged in to view form details.' );
+            }
+
+            $current_user_id = get_current_user_id();
+            $form_id         = isset( $_POST['form_id'] ) ? intval( $_POST['form_id'] ) : 0;
+
+            global $wpdb;
+            $forms_table    = $wpdb->prefix . 'cree_consejeria_client_forms_master';
+            $encryption_key = SECURE_AUTH_KEY;
+
+            // 2. Strict Ownership Lock: user_id MUST match logged-in user
+            $query = $wpdb->prepare(
+                "SELECT CAST(AES_DECRYPT(form_data_encrypted, %s) AS CHAR) AS decrypted_data, created_at 
+                FROM {$forms_table} 
+                WHERE id = %d AND user_id = %d",
+                $encryption_key,
+                $form_id,
+                $current_user_id
+            );
+
+            $record = $wpdb->get_row( $query );
+
+            if ( ! $record || empty( $record->decrypted_data ) ) {
+                wp_send_json_error( 'Form record not found or access denied.' );
+            }
+
+            // 3. Unserialize / Decode JSON payload
+            $form_fields = json_decode( $record->decrypted_data, true );
+
+            if ( ! is_array( $form_fields ) ) {
+                // Fallback if data was stored via serialize()
+                $form_fields = maybe_unserialize( $record->decrypted_data );
+            }
+
+            // 4. Build HTML View of submitted fields
+            $html = '<div class="cree-form-summary-view">';
+            if ( is_array( $form_fields ) ) {
+                $html .= '<table style="width:100%; border-collapse:collapse;">';
+                foreach ( $form_fields as $field_key => $field_val ) {
+                    if ( is_array( $field_val ) ) $field_val = implode( ', ', $field_val );
+                    
+                    $clean_label = ucwords( str_replace( array( '_', '-' ), ' ', $field_key ) );
+                    $html .= '<tr style="border-bottom:1px solid #eee;">';
+                    $html .= '<td style="padding:6px; font-weight:bold; width:40%;">' . esc_html( $clean_label ) . ':</td>';
+                    $html .= '<td style="padding:6px;">' . esc_html( $field_val ) . '</td>';
+                    $html .= '</tr>';
+                }
+                $html .= '</table>';
+            } else {
+                $html .= '<p>' . esc_html( $record->decrypted_data ) . '</p>';
+            }
+            $html .= '</div>';
+
+            wp_send_json_success( $html );
+        }
         /**
          * Deactivate the plugin
          */
@@ -280,7 +714,6 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
 
         /**
          * Uninstall the plugin
-         * FIX: Switched to public static function to be valid within register_uninstall_hook
          */
         public static function uninstall(){
             delete_option('cree_consejeria_cfm_db_version');
@@ -293,6 +726,9 @@ if( !class_exists( 'CREE_Consejeria_CFM' )){
             );
             $wpdb->query(
                 "DROP TABLE IF EXISTS {$wpdb->prefix}cree_consejeria_client_forms_master"
+            );
+            $wpdb->query(
+                "DROP TABLE IF EXISTS {$wpdb->prefix}cree_consejeria_session_notes"
             );
         }       
     }
