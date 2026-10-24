@@ -15,6 +15,7 @@ if ( ! class_exists( 'CREE_Consejeria_Form_Shortcode' ) ) {
 
         public function render_form_shortcode( $atts ) 
         {
+
             // 1. Safely handle shortcode attributes and set a default 'type'
             $attributes = shortcode_atts(
                 array(
@@ -25,6 +26,32 @@ if ( ! class_exists( 'CREE_Consejeria_Form_Shortcode' ) ) {
 
             // Sanitize the type attribute
             $form_type = sanitize_file_name( $attributes['type'] );
+
+            // 1. If user is logged in (and not therapist staff), check for prior submissions
+            if ( is_user_logged_in() && ! current_user_can( 'edit_posts' ) ) {
+                $current_user_id = get_current_user_id();
+                global $wpdb;
+                $forms_table = $wpdb->prefix . 'cree_consejeria_client_forms_master';
+
+                $existing_submission = $wpdb->get_var( $wpdb->prepare(
+                    "SELECT id FROM {$forms_table} WHERE wp_id = %d AND form_type = %s",
+                    $current_user_id,
+                    $form_type
+                ) );
+
+                // 2. If already submitted, block access and show redirect notice
+                if ( $existing_submission ) {
+                    return '<div class="cree-form-container" style="max-width: 600px; margin: 40px auto; background: #fff; padding: 30px; border-radius: 8px; border: 1px solid #dcdcde; text-align: center;">
+                        <h3 style="color: #1d2327; margin-top: 0;">Form Already Submitted</h3>
+                        <p style="color: #50575e; font-size: 15px;">You have already completed and submitted this evaluation. You can review your records anytime in your secure dashboard.</p>
+                        <p style="margin-top: 20px;">
+                            <a href="' . esc_url( home_url( '/client-portal/' ) ) . '" style="background: #2271b1; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+                                Go to Client Portal
+                            </a>
+                        </p>
+                    </div>';
+                }
+            }
 
             // Maps the 'type' attribute to a specific file in the /views/ folder
             $view_map = [

@@ -14,7 +14,7 @@ class CREE_Client_Login_Shortcode {
                 wp_redirect( home_url( '/client-portal/' ) );
                 exit;
             }
-            return '<div class="cree-login-card"><p>You are currently logged in as staff. Access the <a href="' . esc_url( home_url( '/therapist-portal/' ) ) . '">Therapist Portal</a>.</p></div>';
+            return '<div class="cree-login-card"><p>You are currently logged in as staff. Access the <a href="' . esc_url( home_url( '/cree-therapist-portal/' ) ) . '">Therapist Portal</a>.</p></div>';
         }
 
         ob_start();
@@ -257,4 +257,4 @@ class CREE_Client_Login_Shortcode {
         return ob_get_clean();
     }
 }
-new CREE_Client_Login_Shortcode();
+// new CREE_Client_Login_Shortcode();

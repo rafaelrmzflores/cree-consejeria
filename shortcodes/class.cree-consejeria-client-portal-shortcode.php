@@ -43,6 +43,11 @@ class CREE_Consejeria_Client_Portal {
         wp_enqueue_style( 'cree-consejeria-form-styles-css' );
         wp_enqueue_script( 'cree-consejeria-form-handler-js' );
 
+        wp_localize_script( 'cree-consejeria-form-handler-js', 'CREE_INTAKE_FORM', array(
+            'ajax_url' => admin_url( 'admin-ajax.php' ),
+            'nonce'    => wp_create_nonce( 'cree_secure_form_submission' ),
+        ) );
+
         ob_start();
         ?>
         <div class="cree-form-container" id="cree-client-portal">
@@ -87,6 +92,17 @@ class CREE_Consejeria_Client_Portal {
                 </table>
             <?php endif; ?>
 
+            <!-- Form Content Modal Container -->
+            <!-- <div id="cree-form-detail-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-align:center;">
+                <div style="background:#fff; width:90%; max-width:650px; max-height:85vh; border-radius:8px; padding:25px; overflow-y:auto; position:relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+                    <button type="button" id="cree-close-modal-btn" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:20px; cursor:pointer; font-weight:bold;">✕</button>
+                    <h3 style="margin-top:0; color:#1e3a8a; border-bottom:1px solid #e5e7eb; padding-bottom:10px;">Form Details</h3>
+                    <div id="cree-form-detail-content" style="margin-top:15px; font-size:14px; color:#374151;">
+                        <p>Loading form details...</p>
+                    </div>
+                </div>
+            </div> -->
+            
             <!-- Modal for displaying decrypted form details -->
             <div id="cree-form-detail-modal" style="display:none; margin-top:20px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:4px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -95,6 +111,7 @@ class CREE_Consejeria_Client_Portal {
                 </div>
                 <div id="cree-form-detail-content">Loading...</div>
             </div>
+
         </div>
         <?php
         return ob_get_clean();

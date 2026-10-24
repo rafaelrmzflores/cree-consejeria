@@ -199,6 +199,105 @@ jQuery(document).ready(function ($) {
   });
 });
 
+jQuery(document).ready(function($) {
+    // 1. Handle "View Content" Button Clicks
+    $(document).on('click', '.cree-view-form-btn', function(e) {
+        e.preventDefault();
+        var formId = $(this).data('form-id');
+        
+        if (!formId) {
+            alert('Form ID missing.');
+            return;
+        }
+
+        // Show modal and loading message
+        $('#cree-form-detail-content').html('<p>Loading secure form contents...</p>');
+        $('#cree-form-detail-modal').show();
+
+        // Send AJAX request to fetch decrypted details
+        $.post(CREE_INTAKE_FORM.ajax_url, {
+            action: 'cree_get_single_form_details',
+            nonce: CREE_INTAKE_FORM.nonce,
+            form_id: formId
+        }, function(res) {
+            if (res.success) {
+                $('#cree-form-detail-content').html(res.data.html);
+            } else {
+                $('#cree-form-detail-content').html('<p style="color:red;">' + (res.data.message || res.data) + '</p>');
+            }
+        }).fail(function(xhr, status, error) {
+            $('#cree-form-detail-content').html('<p style="color:red;">Server error: ' + error + '</p>');
+        });
+    });
+
+    // 2. Close Modal Handler
+    $('#cree-close-modal-btn').on('click', function(e) {
+        e.preventDefault();
+        $('#cree-form-detail-modal').hide();
+    });
+});
+
+jQuery(document).ready(function($) {
+    $('#cree-intake-submission-form').on('submit', function(e) {
+        e.preventDefault();
+
+        const $form = $(this);
+        const $submitBtn = $('#cree-submit-form-btn');
+        const $responseMsg = $('#cree-form-response-msg');
+
+        // Disable submit button to prevent double-clicks
+        $submitBtn.prop('disabled', true).text('Encrypting & Submitting...');
+        $responseMsg.text('').css('color', '#1d2327');
+
+        // Gather serialized form data
+        // Note: Individual inputs in your views are named like name="form_data[client_name]"
+        const formData = $form.serialize();
+
+        $.ajax({
+            url: CREE_INTAKE_FORM.ajax_url,
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                action: 'cree_submit_intake_form',
+                nonce: CREE_INTAKE_FORM.nonce,
+                form_data: $form.serializeArray().reduce(function(acc, field) {
+                    // Extract field name inside brackets if using form_data[key], 
+                    // or pass serialized data directly if handled by PHP mapping
+                    acc[field.name] = field.value;
+                    return acc;
+                }, {})
+            },
+            success: function(response) {
+                $submitBtn.prop('disabled', false).text('Submit Form Securely');
+
+                if (response.success) {
+                    // 1. Handle Successful Submission
+                    $responseMsg.css('color', 'green').html('✅ ' + response.data.message);
+                    $form[0].reset(); // Clear form inputs
+
+                    // Optional: Redirect client back to portal after 2 seconds
+                    setTimeout(function() {
+                        window.location.href = window.location.origin + '/client-portal/';
+                    }, 2000);
+
+                } else {
+                    // 2. Handle Errors (Catches 'already_submitted' or validation failures)
+                    const errorMsg = response.data && response.data.message 
+                        ? response.data.message 
+                        : 'An unexpected error occurred.';
+                    
+                    $responseMsg.css('color', '#d63638').html('⚠️ ' + errorMsg);
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                // 3. Handle Network or Server Failure
+                $submitBtn.prop('disabled', false).text('Submit Form Securely');
+                $responseMsg.css('color', '#d63638').html('⚠️ Connection error. Please check your network and try again.');
+            }
+        });
+    });
+});
+
 /* function checkOther(selectElement) {
   var container = document.getElementById("other_drug_container");
   if (container) {
