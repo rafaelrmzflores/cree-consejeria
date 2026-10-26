@@ -11,7 +11,7 @@ class CREE_Consejeria_Client_Portal {
         if ( ! is_user_logged_in() ) {
             return '<div class="cree-form-container" style="padding:20px; text-align:center;">
                 <h2>Client Portal</h2>
-                <p>Please <a href="' . esc_url( site_url( '/client-login/' ) ) . '">log in</a> to access your client portal and assigned intake documents.</p>
+                <p>Por favor, <a href="' . esc_url( site_url( '/client-login/' ) ) . '">inicie sesión</a> para acceder a su portal de cliente y los documentos de evaluación asignados.</p>
             </div>';
         }
 

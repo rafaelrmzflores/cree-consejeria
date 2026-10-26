@@ -4,7 +4,7 @@
 * Plugin Name: CREE Consejeria CFM
 * Plugin URI: https://www.wordpress.org/cree-consejeria
 * Description: Sistema de Consejería y Formulario de Intake Encryptado
-* Version: 1.2.0
+* Version: 3.0.2
 * Requires at least: 5.6
 * Requires PHP: 7.0
 * Author: Rafael Ramírez Flores
@@ -91,13 +91,13 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             add_action( 'wp_ajax_cree_update_session_note', array( $this, 'ajax_update_session_note' ) );
 
-            add_action( 'admin_init', array( $this, 'maybe_create_tables' ) );
+            add_action( 'plugins_loaded', array( $this, 'check_plugin_version' ) );
         }
 
         public function define_constants() {
             define( 'CREE_CONSEJERIA_CFM_PATH', plugin_dir_path( __FILE__ ) );
             define( 'CREE_CONSEJERIA_CFM_URL', plugin_dir_url( __FILE__ ) );
-            define( 'CREE_CONSEJERIA_CFM_VERSION', '1.2.0' );
+            define( 'CREE_CONSEJERIA_CFM_VERSION', '3.0.2' );
         }
 
         /**
@@ -215,17 +215,19 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             $pages_to_create = array(
                 //Intake Forms
-                array( 'slug' => 'registration-short-form', 'title' => __('Registration Short Form', 'cree-consejeria'), 'form_type' => 'registration_short_form' ),
-                array( 'slug' => 'psychosocial-evaluation-form', 'title' => __('Psychosocial Evaluation Form', 'cree-consejeria'), 'form_type' => 'psychosocial_evaluation' ),
-                array( 'slug' => 'substance-abuse-form', 'title' => __('Substance Abuse Form', 'cree-consejeria'), 'form_type' => 'substance_abuse_intake' ),
-                array( 'slug' => 'aviso-de-practicas-de-privacidad', 'title' => __('Aviso de Prácticas de Privacidad', 'cree-consejeria'), 'form_type' => 'aviso_de_practicas_de_privacidad' ),
+                array( 'slug' => 'registration-short-form', 'title' => __('Formulario de Registro Breve', 'cree-consejeria'), 'form_type' => 'registration_short_form' ),
+                array( 'slug' => 'psychosocial-evaluation-form', 'title' => __('Formulario de Evaluación Psicosocial', 'cree-consejeria'), 'form_type' => 'psychosocial_evaluation' ),
+                array( 'slug' => 'substance-abuse-form', 'title' => __('Formulario de Abuso de Sustancias', 'cree-consejeria'), 'form_type' => 'substance_abuse_intake' ),
+               // Legal & Privacy Forms
+                array( 'slug' => 'aviso-de-practicas-de-privacidad', 'title' => __('Aviso de Prácticas de Privacidad', 'cree-consejeria'), 'form_type' => 'aviso_de_practicas_de_privacidad' ), 
+                array( 'slug' => 'politicas-de-la-practica', 'title' => __('Aviso de Políticas de la Práctica', 'cree-consejeria'), 'form_type' => 'politicas_de_la_practica' ),
+                // Consentimientos Informados
                 array( 'slug' => 'consentimiento-informado-para-psicoterapia', 'title' => __('Consentimiento Informado para Psicoterapia', 'cree-consejeria'), 'form_type' => 'consentimiento_informado_para_psicoterapia' ),
-                array( 'slug' => 'politicas-de-la-practica', 'title' => __('Políticas de la Práctica', 'cree-consejeria'), 'form_type' => 'politicas_de_la_practica' ),
                 array( 'slug' => 'consentimiento-informado-para-terapia-en-linea', 'title' => __('Consentimiento Informado para Terapia en Línea', 'cree-consejeria'), 'form_type' => 'consentimiento_informado_para_terapia_en_linea' ),
                 array( 'slug' => 'consentimiento-para-divulgacion-de-informacion', 'title' => __('Consentimiento para la Divulgación de Información', 'cree-consejeria'), 'form_type' => 'consentimiento_para_divulgacion_de_informacion' ),
                 // Client Portal and Login Pages
-                array( 'slug' => 'client-portal', 'title' => __('Client Portal', 'cree-consejeria'), 'form_type' => '' ),
-                array( 'slug' => 'client-login', 'title' => __('Client Login', 'cree-consejeria'), 'form_type' => '' )
+                array( 'slug' => 'client-portal', 'title' => __('Portal del Cliente', 'cree-consejeria'), 'form_type' => '' ),
+                array( 'slug' => 'client-login', 'title' => __('Ingreso del Cliente', 'cree-consejeria'), 'form_type' => '' )
             );
 
             if ( ! function_exists( 'wp_get_current_user' ) ) {
@@ -436,7 +438,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             global $wpdb;
             $notes_table_name = $wpdb->prefix . 'cree_consejeria_session_notes';
-            $encryption_key   = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
 
             $client_id    = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
             $therapist_id = get_current_user_id();
@@ -457,20 +459,41 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                 $encryption_key
             ) );
 
+            
+
             if ( $inserted ) {
+                // Fetch the new database ID so we can assign it to the edit button
+                $note_id = $wpdb->insert_id;
+                
                 // Format the newly created note card HTML for instant DOM injection
                 $formatted_date = wp_date( 'F j, Y', strtotime( $session_date ) );
                 ob_start();
                 ?>
-                <div style="background:#fff; border:1px solid #e5e7eb; border-left:4px solid #10b981; padding:12px; margin-bottom:10px; border-radius:4px;">
-                    <div style="font-size:12px; font-weight:bold; color:#374151; margin-bottom:6px;">📅 Session Date: <?php echo esc_html( $formatted_date ); ?></div>
-                    <div style="font-size:13.5px; color:#1f2937; white-space:pre-wrap;"><?php echo esc_html( $note_text ); ?></div>
+                <div class="cree-note-card" data-note-id="<?php echo intval( $note_id ); ?>" style="background:#fff; border:1px solid #e5e7eb; border-left:4px solid #10b981; padding:14px; margin-bottom:12px; border-radius:6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div class="cree-note-date-text" style="font-size:12px; font-weight:bold; color:#374151;">📅 Session Date: <?php echo esc_html( $formatted_date ); ?></div>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" onclick="creePrintNote(this)" style="background:#6b7280; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">🖨️ Print</button>
+                            <button type="button" class="cree-edit-note-btn" style="background:#3b82f6; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">✏️ Edit</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Static View Mode -->
+                    <div class="cree-note-text-view" style="font-size:13.5px; color:#1f2937; white-space:pre-wrap;"><?php echo esc_html( $note_text ); ?></div>
+
+                    <!-- Edit Mode (Hidden by default) -->
+                    <div class="cree-note-edit-form" style="display:none; margin-top:10px;">
+                        <textarea class="cree-note-edit-textarea" rows="4" style="width:100%; padding:8px; border-radius:4px; border:1px solid #d1d5db; font-size:13.5px;"><?php echo esc_textarea( $note_text ); ?></textarea>
+                        <div style="margin-top:8px; display:flex; gap:8px;">
+                            <button type="button" class="cree-save-note-btn" style="background:#10b981; color:#fff; border:none; padding:6px 14px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">💾 Save</button>
+                            <button type="button" class="cree-cancel-note-btn" style="background:#e5e7eb; color:#374151; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">Cancel</button>
+                        </div>
+                    </div>
                 </div>
                 <?php
                 $note_html = ob_get_clean();
-
                 wp_send_json_success( array(
-                    'message'   => '✅ Session note saved successfully!',
+                    'message'   => '✔️ Session note saved successfully!',
                     'note_html' => $note_html
                 ) );
             } else {
@@ -486,7 +509,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             global $wpdb;
             $notes_table_name = $wpdb->prefix . 'cree_consejeria_session_notes';
-            $encryption_key   = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
             $client_id        = intval( $_POST['client_id'] );
 
             $query = $wpdb->prepare(
@@ -612,7 +635,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             global $wpdb;
             $forms_table    = $wpdb->prefix . 'cree_consejeria_client_forms_master';
-            $encryption_key = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
 
             // FIX: Changed user_id to wp_id to match database table schema
             $query = $wpdb->prepare(
@@ -630,10 +653,15 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                 wp_send_json_error( 'Form record not found or access denied.' );
             }
 
-            $form_fields = json_decode( $record->decrypted_data, true );
+            // $form_fields = json_decode( $record->decrypted_data, true );
 
-            if ( ! is_array( $form_fields ) ) {
-                $form_fields = maybe_unserialize( $record->decrypted_data );
+            // if ( ! is_array( $form_fields ) ) {
+            //     $form_fields = maybe_unserialize( $record->decrypted_data );
+            // }
+
+            $form_fields = json_decode( $record->decrypted_data, true );
+            if ( json_last_error() !== JSON_ERROR_NONE || ! is_array( $form_fields ) ) {
+                $form_fields = array(); // Failsafe for corrupted data
             }
 
             $html = '<div class="cree-form-summary-view">';
@@ -660,7 +688,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
         /**
          * Book an Appointment (Client or Therapist)
          */
-        public function ajax_book_appointment() {
+        public function ajax_book_appointment_deprecated_1() {
             // 1. Flexible Nonce Verification
             if ( isset( $_POST['security'] ) ) {
                 check_ajax_referer( 'cree_secure_note_nonce', 'security' );
@@ -685,7 +713,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             global $wpdb;
             $table_name     = $wpdb->prefix . 'cree_consejeria_appointments';
-            $encryption_key = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
 
             $inserted = $wpdb->query( $wpdb->prepare(
                 "INSERT INTO {$table_name} (client_id, therapist_id, appointment_date, status, notes_encrypted) 
@@ -699,6 +727,191 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             if ( $inserted ) {
                 wp_send_json_success( array( 'message' => __( 'Appointment successfully scheduled.', 'cree-consejeria' ) ) );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Failed to save appointment in database.', 'cree-consejeria' ) ) );
+            }
+        }
+
+        /**
+         * Book an Appointment (Client or Therapist)
+         */
+        public function ajax_book_appointment_deprecated_2() {
+            // 1. Flexible Nonce Verification
+            if ( isset( $_POST['security'] ) ) {
+                check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            } elseif ( isset( $_POST['nonce'] ) ) {
+                check_ajax_referer( 'cree_secure_form_submission', 'nonce' );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Security check failed.', 'cree-consejeria' ) ) );
+            }
+
+            if ( ! is_user_logged_in() ) {
+                wp_send_json_error( array( 'message' => __( 'Authentication required.', 'cree-consejeria' ) ) );
+            }
+
+            $client_id        = current_user_can( 'edit_posts' ) && isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : get_current_user_id();
+            $therapist_id     = get_current_user_id();
+            $appointment_date = isset( $_POST['appointment_date'] ) ? sanitize_text_field( $_POST['appointment_date'] ) : '';
+            $notes            = isset( $_POST['notes'] ) ? sanitize_textarea_field( $_POST['notes'] ) : '';
+
+            if ( empty( $appointment_date ) ) {
+                wp_send_json_error( array( 'message' => __( 'Please select a valid date and time.', 'cree-consejeria' ) ) );
+            }
+
+            // FIX: Convert HTML5 'datetime-local' format (YYYY-MM-DDThh:mm) to MySQL DATETIME format (YYYY-MM-DD hh:mm:ss)
+            $appointment_date = str_replace('T', ' ', $appointment_date);
+            if ( strlen($appointment_date) == 16 ) {
+                $appointment_date .= ':00';
+            }
+
+            global $wpdb;
+            $table_name     = $wpdb->prefix . 'cree_consejeria_appointments';
+            $encryption_key = $this->get_encryption_key();
+
+            $inserted = $wpdb->query( $wpdb->prepare(
+                "INSERT INTO {$table_name} (client_id, therapist_id, appointment_date, status, notes_encrypted)
+                 VALUES (%d, %d, %s, 'scheduled', AES_ENCRYPT(%s, %s))",
+                $client_id,
+                $therapist_id,
+                $appointment_date,
+                $notes,
+                $encryption_key
+            ) );
+
+            if ( $inserted ) {
+                wp_send_json_success( array( 'message' => __( 'Appointment successfully scheduled.', 'cree-consejeria' ) ) );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Failed to save appointment in database.', 'cree-consejeria' ) ) );
+            }
+        }
+
+        /**
+         * Book an Appointment (Intelligent: Conflict Check & Email)
+         */
+        public function ajax_book_appointment_deprecated_3() {
+            if ( isset( $_POST['security'] ) ) { check_ajax_referer( 'cree_secure_note_nonce', 'security' ); } 
+            elseif ( isset( $_POST['nonce'] ) ) { check_ajax_referer( 'cree_secure_form_submission', 'nonce' ); } 
+            else { wp_send_json_error( array( 'message' => __( 'Security check failed.', 'cree-consejeria' ) ) ); }
+
+            if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => __( 'Authentication required.', 'cree-consejeria' ) ) );
+
+            $client_id        = current_user_can( 'edit_posts' ) && isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : get_current_user_id();
+            $therapist_id     = get_current_user_id();
+            $appointment_date = isset( $_POST['appointment_date'] ) ? sanitize_text_field( $_POST['appointment_date'] ) : '';
+            $duration_minutes = isset( $_POST['duration_minutes'] ) ? intval( $_POST['duration_minutes'] ) : 50;
+            $notes            = isset( $_POST['notes'] ) ? sanitize_textarea_field( $_POST['notes'] ) : '';
+
+            if ( empty( $appointment_date ) ) wp_send_json_error( array( 'message' => __( 'Please select a valid date and time.', 'cree-consejeria' ) ) );
+
+            // Convert HTML5 datetime to MySQL format
+            $appointment_date = str_replace('T', ' ', $appointment_date);
+            if ( strlen($appointment_date) == 16 ) $appointment_date .= ':00';
+
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_consejeria_appointments';
+            $encryption_key = $this->get_encryption_key();
+
+            // CONFLICT CHECK: Does this time block overlap with an existing scheduled appointment for this therapist?
+            $overlap = $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$table_name} 
+                 WHERE therapist_id = %d AND status = 'scheduled' 
+                 AND appointment_date < DATE_ADD(%s, INTERVAL %d MINUTE) 
+                 AND DATE_ADD(appointment_date, INTERVAL duration_minutes MINUTE) > %s",
+                $therapist_id, $appointment_date, $duration_minutes, $appointment_date
+            ) );
+
+            if ( $overlap ) {
+                wp_send_json_error( array( 'message' => __( 'Schedule Conflict: You already have an active appointment booked during this time block.', 'cree-consejeria' ) ) );
+            }
+
+            $inserted = $wpdb->query( $wpdb->prepare(
+                "INSERT INTO {$table_name} (client_id, therapist_id, appointment_date, duration_minutes, status, notes_encrypted)
+                 VALUES (%d, %d, %s, %d, 'scheduled', AES_ENCRYPT(%s, %s))",
+                $client_id, $therapist_id, $appointment_date, $duration_minutes, $notes, $encryption_key
+            ) );
+
+            if ( $inserted ) {
+                // AUTO-EMAIL NOTIFICATION
+                $client_info = get_userdata( $client_id );
+                if ( $client_info ) {
+                    $formatted_time = wp_date( 'l, F j, Y \a\t g:i A', strtotime( $appointment_date ) );
+                    $subject = '[CREE Consejería] Nueva Cita Programada';
+                    $message = "Hola {$client_info->first_name},\n\nSu terapeuta ha programado una nueva sesión para usted.\n\nFecha y Hora: {$formatted_time}\nDuración: {$duration_minutes} minutos\nNotas / Enlace: {$notes}\n\nSi necesita reprogramar, por favor hágalo con al menos 24 horas de antelación accediendo al Portal del Cliente.\n\nAtentamente,\nEquipo de CREE Consejería";
+                    
+                    wp_mail( $client_info->user_email, $subject, $message, array('Content-Type: text/plain; charset=UTF-8') );
+                }
+                wp_send_json_success( array( 'message' => __( 'Appointment successfully scheduled and client notified.', 'cree-consejeria' ) ) );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Failed to save appointment in database.', 'cree-consejeria' ) ) );
+            }
+        }
+
+        /**
+         * Book or Edit an Appointment (Intelligent: Conflict Check & Email)
+         */
+        public function ajax_book_appointment() {
+            if ( isset( $_POST['security'] ) ) { check_ajax_referer( 'cree_secure_note_nonce', 'security' ); } 
+            elseif ( isset( $_POST['nonce'] ) ) { check_ajax_referer( 'cree_secure_form_submission', 'nonce' ); } 
+            else { wp_send_json_error( array( 'message' => __( 'Security check failed.', 'cree-consejeria' ) ) ); }
+
+            if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => __( 'Authentication required.', 'cree-consejeria' ) ) );
+
+            $client_id        = current_user_can( 'edit_posts' ) && isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : get_current_user_id();
+            $therapist_id     = get_current_user_id();
+            $appointment_id   = isset( $_POST['appointment_id'] ) ? intval( $_POST['appointment_id'] ) : 0;
+            $appointment_date = isset( $_POST['appointment_date'] ) ? sanitize_text_field( $_POST['appointment_date'] ) : '';
+            $duration_minutes = isset( $_POST['duration_minutes'] ) ? intval( $_POST['duration_minutes'] ) : 50;
+            $notes            = isset( $_POST['notes'] ) ? sanitize_textarea_field( $_POST['notes'] ) : '';
+
+            if ( empty( $appointment_date ) ) wp_send_json_error( array( 'message' => __( 'Please select a valid date and time.', 'cree-consejeria' ) ) );
+
+            $appointment_date = str_replace('T', ' ', $appointment_date);
+            if ( strlen($appointment_date) == 16 ) $appointment_date .= ':00';
+
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_consejeria_appointments';
+            $encryption_key = $this->get_encryption_key();
+
+            // CONFLICT CHECK: Ignore the current appointment if we are editing it
+            $overlap_query = $wpdb->prepare(
+                "SELECT id FROM {$table_name} 
+                 WHERE therapist_id = %d AND status = 'scheduled' AND id != %d 
+                 AND appointment_date < DATE_ADD(%s, INTERVAL %d MINUTE) 
+                 AND DATE_ADD(appointment_date, INTERVAL duration_minutes MINUTE) > %s",
+                $therapist_id, $appointment_id, $appointment_date, $duration_minutes, $appointment_date
+            );
+            
+            if ( $wpdb->get_var( $overlap_query ) ) {
+                wp_send_json_error( array( 'message' => __( 'Schedule Conflict: You already have an active appointment booked during this time block.', 'cree-consejeria' ) ) );
+            }
+
+            if ( $appointment_id > 0 ) {
+                // UPDATE EXISTING APPOINTMENT
+                $result = $wpdb->query( $wpdb->prepare(
+                    "UPDATE {$table_name} SET appointment_date = %s, duration_minutes = %d, notes_encrypted = AES_ENCRYPT(%s, %s) WHERE id = %d",
+                    $appointment_date, $duration_minutes, $notes, $encryption_key, $appointment_id
+                ) );
+                $success_msg = 'Appointment successfully updated.';
+            } else {
+                // INSERT NEW APPOINTMENT
+                $result = $wpdb->query( $wpdb->prepare(
+                    "INSERT INTO {$table_name} (client_id, therapist_id, appointment_date, duration_minutes, status, notes_encrypted)
+                     VALUES (%d, %d, %s, %d, 'scheduled', AES_ENCRYPT(%s, %s))",
+                    $client_id, $therapist_id, $appointment_date, $duration_minutes, $notes, $encryption_key
+                ) );
+                $success_msg = 'Appointment successfully scheduled and client notified.';
+            }
+
+            if ( $result !== false ) {
+                // AUTO-EMAIL NOTIFICATION
+                $client_info = get_userdata( $client_id );
+                if ( $client_info ) {
+                    $formatted_time = wp_date( 'l, F j, Y \a\t g:i A', strtotime( $appointment_date ) );
+                    $subject = $appointment_id > 0 ? '[CREE Consejería] Actualización de Cita' : '[CREE Consejería] Nueva Cita Programada';
+                    $message = "Hola {$client_info->first_name},\n\nSu sesión ha sido confirmada/actualizada.\n\nFecha y Hora: {$formatted_time}\nDuración: {$duration_minutes} minutos\nNotas / Enlace: {$notes}\n\nSi necesita reprogramar, por favor hágalo con al menos 24 horas de antelación accediendo al Portal del Cliente.\n\nAtentamente,\nEquipo de CREE Consejería";
+                    wp_mail( $client_info->user_email, $subject, $message, array('Content-Type: text/plain; charset=UTF-8') );
+                }
+                wp_send_json_success( array( 'message' => __( $success_msg, 'cree-consejeria' ) ) );
             } else {
                 wp_send_json_error( array( 'message' => __( 'Failed to save appointment in database.', 'cree-consejeria' ) ) );
             }
@@ -722,7 +935,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             global $wpdb;
             $table_name     = $wpdb->prefix . 'cree_consejeria_appointments';
-            $encryption_key = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
             $current_user   = get_current_user_id();
             $is_therapist   = current_user_can( 'edit_posts' );
 
@@ -796,7 +1009,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             wp_send_json_success( array( 'html' => ob_get_clean() ) );
         }
 
-        public function ajax_update_appointment_status() {
+        public function ajax_update_appointment_status_deprecated_1() {
             // Nonce verification
             if ( isset( $_POST['security'] ) ) {
                 check_ajax_referer( 'cree_secure_note_nonce', 'security' );
@@ -835,6 +1048,51 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             }
         }
 
+        public function ajax_update_appointment_status() {
+            if ( isset( $_POST['security'] ) ) { check_ajax_referer( 'cree_secure_note_nonce', 'security' ); } 
+            elseif ( isset( $_POST['nonce'] ) ) { check_ajax_referer( 'cree_secure_form_submission', 'nonce' ); } 
+            else { wp_send_json_error( array( 'message' => __( 'Security check failed.', 'cree-consejeria' ) ) ); }
+
+            if ( ! is_user_logged_in() || ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => __( 'Unauthorized access.', 'cree-consejeria' ) ) );
+
+            $appointment_id = isset( $_POST['appointment_id'] ) ? intval( $_POST['appointment_id'] ) : 0;
+            $status         = isset( $_POST['status'] ) ? sanitize_text_field( $_POST['status'] ) : '';
+
+            if ( ! $appointment_id || ! in_array( $status, array( 'scheduled', 'completed', 'cancelled' ), true ) ) {
+                wp_send_json_error( array( 'message' => __( 'Invalid parameters provided.', 'cree-consejeria' ) ) );
+            }
+
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_consejeria_appointments';
+            
+            // Fetch appointment info before updating to get the date and client ID for the email
+            $appt = $wpdb->get_row( $wpdb->prepare( "SELECT client_id, appointment_date FROM {$table_name} WHERE id = %d", $appointment_id ) );
+
+            $updated = $wpdb->update(
+                $table_name,
+                array( 'status' => $status ),
+                array( 'id' => $appointment_id ),
+                array( '%s' ),
+                array( '%d' )
+            );
+
+            if ( false !== $updated ) {
+                // If it was cancelled, fire an automated email to the client
+                if ( $status === 'cancelled' && $appt ) {
+                    $client_info = get_userdata( $appt->client_id );
+                    if ( $client_info ) {
+                        $formatted_time = wp_date( 'l, F j, Y \a\t g:i A', strtotime( $appt->appointment_date ) );
+                        $subject = '[CREE Consejería] Aviso de Cancelación de Cita';
+                        $message = "Hola {$client_info->first_name},\n\nLe informamos que su sesión programada para el {$formatted_time} ha sido cancelada por su terapeuta.\n\nPor favor, acceda a su Portal del Cliente o contáctenos para programar una nueva fecha.\n\nAtentamente,\nEquipo de CREE Consejería";
+                        wp_mail( $client_info->user_email, $subject, $message, array('Content-Type: text/plain; charset=UTF-8') );
+                    }
+                }
+                wp_send_json_success( array( 'message' => __( 'Appointment updated successfully.', 'cree-consejeria' ) ) );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Database update failed.', 'cree-consejeria' ) ) );
+            }
+        }
+
         /**
          * Add / Update Treatment Goal (Therapist Only)
          */
@@ -859,7 +1117,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             global $wpdb;
             $table_name     = $wpdb->prefix . 'cree_consejeria_treatment_goals';
-            $encryption_key = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
 
             $inserted = $wpdb->query( $wpdb->prepare(
                 "INSERT INTO {$table_name} (client_id, therapist_id, goal_title, goal_description_encrypted, target_date, progress_percentage, status) 
@@ -907,7 +1165,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             global $wpdb;
             $table_name     = $wpdb->prefix . 'cree_consejeria_treatment_goals';
-            $encryption_key = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
 
             // 3. Query DB and decrypt description blob
             $query = $wpdb->prepare(
@@ -978,21 +1236,33 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             global $wpdb;
             $forms_table    = $wpdb->prefix . 'cree_consejeria_client_forms_master';
-            $encryption_key = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
 
-            $where_clause = current_user_can( 'edit_posts' ) 
-                ? $wpdb->prepare( "WHERE id = %d", $form_id ) 
-                : $wpdb->prepare( "WHERE id = %d AND wp_id = %d", $form_id, $current_user );
+            // $where_clause = current_user_can( 'edit_posts' ) 
+            //     ? $wpdb->prepare( "WHERE id = %d", $form_id ) 
+            //     : $wpdb->prepare( "WHERE id = %d AND wp_id = %d", $form_id, $current_user );
 
-            $record = $wpdb->get_row( "SELECT *, CAST(AES_DECRYPT(form_data_encrypted, '$encryption_key') AS CHAR) AS decrypted_data FROM {$forms_table} {$where_clause}" );
+            // $record = $wpdb->get_row( "SELECT *, CAST(AES_DECRYPT(form_data_encrypted, '$encryption_key') AS CHAR) AS decrypted_data FROM {$forms_table} {$where_clause}" );
+
+            // In ajax_get_single_form_details and ajax_export_intake_pdf_html
+            $query = current_user_can( 'edit_posts' )
+                ? $wpdb->prepare( "SELECT *, CAST(AES_DECRYPT(form_data_encrypted, %s) AS CHAR) AS decrypted_data FROM {$forms_table} WHERE id = %d", $encryption_key, $form_id )
+                : $wpdb->prepare( "SELECT *, CAST(AES_DECRYPT(form_data_encrypted, %s) AS CHAR) AS decrypted_data FROM {$forms_table} WHERE id = %d AND wp_id = %d", $encryption_key, $form_id, $current_user );
+
+            $record = $wpdb->get_row( $query );
 
             if ( ! $record || empty( $record->decrypted_data ) ) {
                 wp_send_json_error( 'Record not found or access denied.' );
             }
 
+            // $form_fields = json_decode( $record->decrypted_data, true );
+            // if ( ! is_array( $form_fields ) ) {
+            //     $form_fields = maybe_unserialize( $record->decrypted_data );
+            // }
+
             $form_fields = json_decode( $record->decrypted_data, true );
-            if ( ! is_array( $form_fields ) ) {
-                $form_fields = maybe_unserialize( $record->decrypted_data );
+            if ( json_last_error() !== JSON_ERROR_NONE || ! is_array( $form_fields ) ) {
+                $form_fields = array(); // Failsafe for corrupted data
             }
 
             ob_start();
@@ -1064,6 +1334,8 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             wp_send_json_success( array( 'html' => ob_get_clean() ) );
         }
 
+
+
         /**
          * Checks for missing plugin database tables and creates them on admin page refresh.
          */
@@ -1094,7 +1366,6 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                     KEY appointment_date (appointment_date),
                     KEY status (status)
                 ) $charset_collate;";
-
                 dbDelta( $sql_appointments );
             }
 
@@ -1117,35 +1388,38 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                     KEY therapist_id (therapist_id),
                     KEY status (status)
                 ) $charset_collate;";
-
                 dbDelta( $sql_goals );
             }
 
-            // 3. Client Forms Master Table (Fallback)
+            // 3. Client Forms Master Table
             $forms_table = $wpdb->prefix . 'cree_consejeria_client_forms_master';
-            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $forms_table ) ) !== $forms_table ) {
-                $sql_forms = "CREATE TABLE $forms_table (
-                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-                    wp_id bigint(20) unsigned NOT NULL,
-                    form_type varchar(100) NOT NULL,
-                    client_name varchar(255) DEFAULT NULL,
-                    dob date DEFAULT NULL,
-                    email varchar(100) DEFAULT NULL,
-                    form_data_encrypted blob DEFAULT NULL,
-                    signature varchar(255) DEFAULT NULL,
-                    status varchar(20) DEFAULT 'complete',
-                    signature_date date DEFAULT NULL,
-                    user_ip varchar(45) DEFAULT NULL,
-                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (id),
-                    KEY wp_id (wp_id),
-                    KEY form_type (form_type)
-                ) $charset_collate;";
+            
+            // FIX: Forcefully drop the strict unique index on wp_id to allow multiple form submissions per client.
+            // Suppress errors briefly so the script doesn't crash if the index was already dropped.
+            $wpdb->suppress_errors(true);
+            $wpdb->query("ALTER TABLE {$forms_table} DROP INDEX wp_id");
+            $wpdb->suppress_errors(false);
 
-                dbDelta( $sql_forms );
-            }
+            $sql_forms = "CREATE TABLE $forms_table (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                wp_id bigint(20) unsigned NOT NULL,
+                form_type varchar(100) NOT NULL,
+                client_name varchar(255) DEFAULT NULL,
+                dob date DEFAULT NULL,
+                email varchar(100) DEFAULT NULL,
+                form_data_encrypted blob DEFAULT NULL,
+                signature varchar(255) DEFAULT NULL,
+                status varchar(20) DEFAULT 'complete',
+                signature_date date DEFAULT NULL,
+                user_ip varchar(45) DEFAULT NULL,
+                created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY wp_id (wp_id),
+                KEY form_type (form_type)
+            ) $charset_collate;";
+            dbDelta( $sql_forms );
 
-            // 4. Session Notes Table (Fallback)
+            // 4. Session Notes Table
             $notes_table = $wpdb->prefix . 'cree_consejeria_session_notes';
             if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $notes_table ) ) !== $notes_table ) {
                 $sql_notes = "CREATE TABLE $notes_table (
@@ -1159,8 +1433,14 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                     KEY client_id (client_id),
                     KEY therapist_id (therapist_id)
                 ) $charset_collate;";
-
                 dbDelta( $sql_notes );
+            }
+        }
+
+        public function check_plugin_version() {
+            if ( get_option( 'cree_consejeria_cfm_version' ) !== CREE_CONSEJERIA_CFM_VERSION ) {
+                $this->maybe_create_tables();
+                update_option( 'cree_consejeria_cfm_version', CREE_CONSEJERIA_CFM_VERSION );
             }
         }
 
@@ -1190,22 +1470,34 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             global $wpdb;
             $forms_table    = $wpdb->prefix . 'cree_consejeria_client_forms_master';
-            $encryption_key = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
 
             // Ensure clients can only view THEIR OWN forms (security rule)
-            $where_clause = current_user_can( 'edit_posts' ) 
-                ? $wpdb->prepare( "WHERE id = %d", $form_id ) 
-                : $wpdb->prepare( "WHERE id = %d AND wp_id = %d", $form_id, $current_user );
+            // $where_clause = current_user_can( 'edit_posts' ) 
+            //     ? $wpdb->prepare( "WHERE id = %d", $form_id ) 
+            //     : $wpdb->prepare( "WHERE id = %d AND wp_id = %d", $form_id, $current_user );
 
-            $record = $wpdb->get_row( "SELECT *, CAST(AES_DECRYPT(form_data_encrypted, '$encryption_key') AS CHAR) AS decrypted_data FROM {$forms_table} {$where_clause}" );
+            // $record = $wpdb->get_row( "SELECT *, CAST(AES_DECRYPT(form_data_encrypted, '$encryption_key') AS CHAR) AS decrypted_data FROM {$forms_table} {$where_clause}" );
+
+            // In ajax_get_single_form_details and ajax_export_intake_pdf_html
+            $query = current_user_can( 'edit_posts' )
+                ? $wpdb->prepare( "SELECT *, CAST(AES_DECRYPT(form_data_encrypted, %s) AS CHAR) AS decrypted_data FROM {$forms_table} WHERE id = %d", $encryption_key, $form_id )
+                : $wpdb->prepare( "SELECT *, CAST(AES_DECRYPT(form_data_encrypted, %s) AS CHAR) AS decrypted_data FROM {$forms_table} WHERE id = %d AND wp_id = %d", $encryption_key, $form_id, $current_user );
+
+            $record = $wpdb->get_row( $query );
 
             if ( ! $record || empty( $record->decrypted_data ) ) {
                 wp_send_json_error( array( 'message' => __( 'Form record not found or access restricted.', 'cree-consejeria' ) ) );
             }
 
+            // $form_fields = json_decode( $record->decrypted_data, true );
+            // if ( ! is_array( $form_fields ) ) {
+            //     $form_fields = maybe_unserialize( $record->decrypted_data );
+            // }
+
             $form_fields = json_decode( $record->decrypted_data, true );
-            if ( ! is_array( $form_fields ) ) {
-                $form_fields = maybe_unserialize( $record->decrypted_data );
+            if ( json_last_error() !== JSON_ERROR_NONE || ! is_array( $form_fields ) ) {
+                $form_fields = array(); // Failsafe for corrupted data
             }
 
             ob_start();
@@ -1235,62 +1527,6 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             wp_send_json_success( array( 'html' => ob_get_clean() ) );
         }
-        
-        /**
-         * AJAX Handler: Assign a Form to a Client
-         */
-        // public function ajax_assign_form_to_client_deprecated() {
-        //     if ( isset( $_POST['security'] ) ) {
-        //         check_ajax_referer( 'cree_secure_note_nonce', 'security' );
-        //     } elseif ( isset( $_POST['nonce'] ) ) {
-        //         check_ajax_referer( 'cree_secure_form_submission', 'nonce' );
-        //     } else {
-        //         wp_send_json_error( array( 'message' => __( 'Security check failed.', 'cree-consejeria' ) ) );
-        //     }
-
-        //     if ( ! is_user_logged_in() || ! current_user_can( 'edit_posts' ) ) {
-        //         wp_send_json_error( array( 'message' => __( 'Unauthorized access.', 'cree-consejeria' ) ) );
-        //     }
-
-        //     $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
-        //     $form_type = isset( $_POST['form_type'] ) ? sanitize_text_field( $_POST['form_type'] ) : '';
-
-        //     if ( ! $client_id || empty( $form_type ) ) {
-        //         wp_send_json_error( array( 'message' => __( 'Please select a valid client and form.', 'cree-consejeria' ) ) );
-        //     }
-
-        //     global $wpdb;
-        //     $table_name = $wpdb->prefix . 'cree_consejeria_assigned_forms';
-
-        //     // Auto-create assigned forms tracking table if missing
-        //     $wpdb->query( "CREATE TABLE IF NOT EXISTS {$table_name} (
-        //         id BIGINT(20) NOT NULL AUTO_AUTO_INCREMENT,
-        //         client_id BIGINT(20) NOT NULL,
-        //         therapist_id BIGINT(20) NOT NULL,
-        //         form_type VARCHAR(100) NOT NULL,
-        //         status VARCHAR(50) DEFAULT 'assigned',
-        //         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        //         PRIMARY KEY (id)
-        //     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" );
-
-        //     $inserted = $wpdb->insert(
-        //         $table_name,
-        //         array(
-        //             'client_id'    => $client_id,
-        //             'therapist_id' => get_current_user_id(),
-        //             'form_type'    => $form_type,
-        //             'status'       => 'assigned',
-        //             'created_at'   => current_time( 'mysql' ),
-        //         ),
-        //         array( '%d', '%d', '%s', '%s', '%s' )
-        //     );
-
-        //     if ( $inserted ) {
-        //         wp_send_json_success( array( 'message' => __( 'Form assigned to client successfully.', 'cree-consejeria' ) ) );
-        //     } else {
-        //         wp_send_json_error( array( 'message' => __( 'Failed to assign form.', 'cree-consejeria' ) ) );
-        //     }
-        // }
 
         /**
          * AJAX Handler: Assign a Form to a Client
@@ -1376,7 +1612,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             }
 
             global $wpdb;
-            $encryption_key = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
 
             // 1. Fetch Assigned Forms for this client
             $assigned_table = $wpdb->prefix . 'cree_consejeria_assigned_forms';
@@ -1401,17 +1637,39 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             // 3. Fetch Session Notes for the specific client
             $notes_table = $wpdb->prefix . 'cree_consejeria_session_notes';
             $notes = $wpdb->get_results( $wpdb->prepare(
-                "SELECT id, session_date, CAST(AES_DECRYPT(note_encrypted, %s) AS CHAR) AS decrypted_note, created_at 
-                FROM {$notes_table} WHERE client_id = %d ORDER BY session_date DESC",
+                "SELECT id, session_date, CAST(AES_DECRYPT(note_encrypted, %s) AS CHAR) AS decrypted_note, created_at
+                 FROM {$notes_table} WHERE client_id = %d ORDER BY session_date DESC",
                 $encryption_key,
                 $client_id
             ) );
+
+            // 4. Fetch Appointments with duration data
+            $appointments_table = $wpdb->prefix . 'cree_consejeria_appointments';
+            $appointments = $wpdb->get_results( $wpdb->prepare(
+                "SELECT id, appointment_date, duration_minutes, status, CAST(AES_DECRYPT(notes_encrypted, %s) AS CHAR) AS decrypted_notes
+                 FROM {$appointments_table} WHERE client_id = %d ORDER BY appointment_date DESC",
+                $encryption_key,
+                $client_id
+            ) );
+
+            // Split into Upcoming and Past
+            $upcoming_appts = array();
+            $past_appts = array();
+            $current_time = current_time('timestamp');
+
+            foreach ( $appointments as $a ) {
+                if ( $a->status === 'scheduled' && strtotime($a->appointment_date) >= $current_time ) {
+                    $upcoming_appts[] = $a;
+                } else {
+                    $past_appts[] = $a;
+                }
+            }
 
             ob_start();
             ?>
             <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
                 <h2 style="margin-top:0; color: #1e3a8a;"><?php echo esc_html( $user_info->display_name ); ?></h2>
-                <p style="margin: 0; color: #4b5563;">✉️ <?php echo esc_html( $user_info->user_email ); ?> | 👤 Client ID: #<?php echo intval( $user_info->ID ); ?></p>
+                <p style="margin: 0; color: #4b5563;">📧 <?php echo esc_html( $user_info->user_email ); ?> | 🆔 Client ID: #<?php echo intval( $user_info->ID ); ?></p>
             </div>
 
             <!-- Sub-Tabs Navigation -->
@@ -1501,7 +1759,6 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                             </table>
                         <?php endif; ?>
                     </div>
-
                 </div>
             </div>
 
@@ -1518,91 +1775,132 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                         <div style="margin-bottom:10px;">
                             <textarea name="note_text" rows="4" placeholder="Enter encrypted session notes, SOAP observations, or clinical notes..." style="width:100%; padding:8px; border-radius:4px; border:1px solid #d1d5db;" required></textarea>
                         </div>
-                        <button type="submit" style="background:#10b981; color:#fff; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">💾 Save Encrypted Note</button>
+                        <button type="submit" style="background:#10b981; color:#fff; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">🔒 Save Encrypted Note</button>
                     </form>
                 </div>
-
                 
-
-            <h4>Encrypted Session Note History</h4>
-            <div id="cree-session-notes-history-container">
-                <?php if ( empty( $notes ) ) : ?>
-                    <p id="cree-no-notes-msg" style="font-style:italic; color:#6b7280;">No session notes recorded for this client.</p>
-                <?php else : ?>
-                    <?php foreach ( $notes as $n ) : ?>
-                        <div class="cree-note-card" data-note-id="<?php echo intval( $n->id ); ?>" style="background:#fff; border:1px solid #e5e7eb; border-left:4px solid #10b981; padding:14px; margin-bottom:12px; border-radius:6px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <div style="font-size:12px; font-weight:bold; color:#374151;">📅 Session Date: <?php echo esc_html( $n->session_date ); ?></div>
-                                <button type="button" class="cree-edit-note-btn" style="background:#3b82f6; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">✏️ Edit</button>
-                            </div>
-                            
-                            <!-- Static View Mode -->
-                            <div class="cree-note-text-view" style="font-size:13.5px; color:#1f2937; white-space:pre-wrap;"><?php echo esc_html( $n->decrypted_note ? $n->decrypted_note : '(Encrypted content unavailable)' ); ?></div>
-
-                            <!-- Edit Mode (Hidden by default) -->
-                            <div class="cree-note-edit-form" style="display:none; margin-top:10px;">
-                                <textarea class="cree-note-edit-textarea" rows="4" style="width:100%; padding:8px; border-radius:4px; border:1px solid #d1d5db; font-size:13.5px;"><?php echo esc_textarea( $n->decrypted_note ); ?></textarea>
-                                <div style="margin-top:8px; display:flex; gap:8px;">
-                                    <button type="button" class="cree-save-note-btn" style="background:#10b981; color:#fff; border:none; padding:6px 14px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">💾 Save</button>
-                                    <button type="button" class="cree-cancel-note-btn" style="background:#e5e7eb; color:#374151; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">Cancel</button>
+                <h4>Encrypted Session Note History</h4>
+                <div id="cree-session-notes-history-container">
+                    <?php if ( empty( $notes ) ) : ?>
+                        <p id="cree-no-notes-msg" style="font-style:italic; color:#6b7280;">No session notes recorded for this client.</p>
+                    <?php else : ?>
+                        <?php foreach ( $notes as $n ) : ?>
+                            <div class="cree-note-card" data-note-id="<?php echo intval( $n->id ); ?>" style="background:#fff; border:1px solid #e5e7eb; border-left:4px solid #10b981; padding:14px; margin-bottom:12px; border-radius:6px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div class="cree-note-date-text" style="font-size:12px; font-weight:bold; color:#374151;">📅 Session Date: <?php echo esc_html( $n->session_date ); ?></div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button type="button" onclick="creePrintNote(this)" style="background:#6b7280; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">🖨️ Print</button>
+                                        <button type="button" class="cree-edit-note-btn" style="background:#3b82f6; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">✏️ Edit</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Static View Mode -->
+                                <div class="cree-note-text-view" style="font-size:13.5px; color:#1f2937; white-space:pre-wrap;"><?php echo esc_html( $n->decrypted_note ? $n->decrypted_note : '(Encrypted content unavailable)' ); ?></div>
+                                
+                                <!-- Edit Mode (Hidden by default) -->
+                                <div class="cree-note-edit-form" style="display:none; margin-top:10px;">
+                                    <textarea class="cree-note-edit-textarea" rows="4" style="width:100%; padding:8px; border-radius:4px; border:1px solid #d1d5db; font-size:13.5px;"><?php echo esc_textarea( $n->decrypted_note ); ?></textarea>
+                                    <div style="margin-top:8px; display:flex; gap:8px;">
+                                        <button type="button" class="cree-save-note-btn" style="background:#10b981; color:#fff; border:none; padding:6px 14px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">💾 Save</button>
+                                        <button type="button" class="cree-cancel-note-btn" style="background:#e5e7eb; color:#374151; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">Cancel</button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
             </div>
 
-            <!-- TAB 3: APPOINTMENTS -->
+            <!-- TAB 3: APPOINTMENTS (OVERHAULED) -->
             <div id="prof-appointments" class="cree-prof-content" style="display: none;">
                 <div style="background: #f9fafb; padding: 15px; border-radius: 6px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
-                    <h4 style="margin-top:0;">Schedule New Session</h4>
+                    <h4 style="margin-top:0;" id="cree-appt-form-title">Schedule New Session</h4>
                     <form id="cree-profile-add-appt">
                         <input type="hidden" name="client_id" value="<?php echo intval( $client_id ); ?>">
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:10px;">
+                        <input type="hidden" name="appointment_id" id="edit_appointment_id" value="">
+                        
+                        <div style="display:grid; grid-template-columns: 1fr 120px 1fr; gap:15px; margin-bottom:10px;">
                             <div>
                                 <label style="display:block; font-size:12px; font-weight:bold;">Date & Time:</label>
                                 <input type="datetime-local" name="appointment_date" style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;" required>
                             </div>
                             <div>
+                                <label style="display:block; font-size:12px; font-weight:bold;">Duration:</label>
+                                <select name="duration_minutes" style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;">
+                                    <option value="30">30 Mins</option>
+                                    <option value="50" selected>50 Mins</option>
+                                    <option value="90">90 Mins</option>
+                                </select>
+                            </div>
+                            <div>
                                 <label style="display:block; font-size:12px; font-weight:bold;">Notes (Optional):</label>
-                                <input type="text" name="notes" placeholder="Initial focus, room #, or meeting link..." style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;">
+                                <input type="text" name="notes" placeholder="Room #, or link..." style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;">
                             </div>
                         </div>
-                        <button type="submit" style="background:#8b5cf6; color:#fff; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">📅 Book Session</button>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="submit" id="cree-appt-submit-btn" style="background:#8b5cf6; color:#fff; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">📅 Book Session</button>
+                            <button type="button" id="cree-appt-cancel-edit-btn" style="display:none; background:#e5e7eb; color:#374151; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">Cancel Edit</button>
+                        </div>
                     </form>
                 </div>
 
-                <h4>Scheduled & Past Appointments</h4>
-                <?php if ( empty( $appointments ) ) : ?>
-                    <p style="font-style:italic; color:#6b7280;">No appointments scheduled for this client.</p>
+                <!-- Upcoming Appointments -->
+                <h4 style="color: #047857; margin-bottom: 10px;">Upcoming Appointments</h4>
+                <?php if ( empty( $upcoming_appts ) ) : ?>
+                    <p style="font-style:italic; color:#6b7280; margin-bottom: 25px;">No upcoming appointments.</p>
                 <?php else : ?>
-                    <table class="widefat striped" style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <table class="widefat striped" style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom: 25px;">
                         <thead>
-                            <tr>
-                                <th style="padding:8px;">Date & Time</th>
-                                <th style="padding:8px;">Status</th>
-                                <th style="padding:8px;">Notes</th>
-                                <th style="padding:8px;">Action</th>
+                            <tr style="background: #ecfdf5;">
+                                <th style="padding:8px; text-align: left;">Date & Time</th>
+                                <th style="padding:8px; text-align: left;">Duration</th>
+                                <th style="padding:8px; text-align: left;">Notes</th>
+                                <th style="padding:8px; text-align: left;">Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ( $appointments as $a ) : ?>
+                            <?php foreach ( $upcoming_appts as $a ) : 
+                                // Format date for HTML5 datetime-local input (YYYY-MM-DDThh:mm)
+                                $js_date = date('Y-m-d\TH:i', strtotime($a->appointment_date));
+                            ?>
                                 <tr>
-                                    <td style="padding:8px; font-weight:bold;"><?php echo esc_html( wp_date( 'F j, Y — g:i a', strtotime( $a->appointment_date ) ) ); ?></td>
+                                    <td style="padding:8px; font-weight:bold;"><?php echo esc_html( wp_date( 'F j, Y \a\t g:i a', strtotime( $a->appointment_date ) ) ); ?></td>
+                                    <td style="padding:8px;"><?php echo intval( $a->duration_minutes ); ?>m</td>
+                                    <td style="padding:8px;"><?php echo esc_html( $a->decrypted_notes ? $a->decrypted_notes : '-' ); ?></td>
+                                    <td style="padding:8px;">
+                                        <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'completed')" style="background:#10b981; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">✔️ Complete</button>
+                                        <button type="button" onclick="creeEditAppointment(<?php echo intval( $a->id ); ?>, '<?php echo esc_js($js_date); ?>', <?php echo intval($a->duration_minutes); ?>, '<?php echo esc_js($a->decrypted_notes); ?>')" style="background:#3b82f6; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">✏️ Edit</button>
+                                        <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'cancelled')" style="background:#ef4444; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">🚫 Cancel</button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+
+                <!-- Past Appointments History -->
+                <h4 style="color: #6b7280; margin-bottom: 10px; border-top: 1px solid #e5e7eb; padding-top: 15px;">Past & Archived Appointments</h4>
+                <?php if ( empty( $past_appts ) ) : ?>
+                    <p style="font-style:italic; color:#6b7280;">No past history.</p>
+                <?php else : ?>
+                    <table class="widefat striped" style="width:100%; border-collapse:collapse; font-size:13px; opacity: 0.85;">
+                        <thead>
+                            <tr>
+                                <th style="padding:8px; text-align: left;">Date & Time</th>
+                                <th style="padding:8px; text-align: left;">Status</th>
+                                <th style="padding:8px; text-align: left;">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $past_appts as $a ) : ?>
+                                <tr>
+                                    <td style="padding:8px; font-weight:bold;"><?php echo esc_html( wp_date( 'M j, Y \a\t g:i a', strtotime( $a->appointment_date ) ) ); ?></td>
                                     <td style="padding:8px;">
                                         <span style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; text-transform: uppercase; <?php echo $a->status === 'completed' ? 'background:#d1fae5; color:#065f46;' : ($a->status === 'cancelled' ? 'background:#fee2e2; color:#991b1b;' : 'background:#e0f2fe; color:#075985;'); ?>">
                                             <?php echo esc_html( $a->status ); ?>
                                         </span>
                                     </td>
                                     <td style="padding:8px;"><?php echo esc_html( $a->decrypted_notes ? $a->decrypted_notes : '-' ); ?></td>
-                                    <td style="padding:8px;">
-                                        <?php if ( $a->status !== 'completed' ) : ?>
-                                            <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'completed')" style="background:#10b981; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">✓ Complete</button>
-                                        <?php endif; ?>
-                                        <?php if ( $a->status !== 'cancelled' ) : ?>
-                                            <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'cancelled')" style="background:#ef4444; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">✕ Cancel</button>
-                                        <?php endif; ?>
-                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -1675,36 +1973,40 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             ob_start();
 
             switch ( $form_type ) {
-                case 'psychosocial_evaluation':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/psychosocial-evaluation_shortcode.php';
+                
+                // Intake Forms
+                case 'registration_short_form':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/intake-forms/client-registration-short-form_shortcode.php';
                     break;
 
-                case 'registration_short_form':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/client-registration-short-form_shortcode.php';
+                case 'psychosocial_evaluation':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/intake-forms/psychosocial-evaluation_shortcode.php';
                     break;
 
                 case 'substance_abuse_intake':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/substance-abuse-intake_shortcode.php';
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/intake-forms/substance-abuse-intake_shortcode.php';
                     break;
 
+                // Privacy Forms
                 case 'politicas_de_la_practica':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/politicas-de-la-practica_shortcode.php';
-                    break;
-
-                case 'consentimiento_informado_para_psicoterapia':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consentimiento-informado-para-psicoterapia_shortcode.php';
-                    break;
-
-                case 'consentimiento_informado_para_terapia_en_linea':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consentimiento-informado-para-terapia-en-linea_shortcode.php';
-                    break;
-
-                case 'consentimiento_para_divulgacion_de_informacion':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consentimiento-para-divulgacion-de-informacion_shortcode.php';
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/privacy-forms/politicas-de-la-practica_shortcode.php';
                     break;
 
                 case 'aviso_de_practicas_de_privacidad':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/aviso-de-practicas-de-privacidad_shortcode.php';
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/privacy-forms/aviso-de-practicas-de-privacidad_shortcode.php';
+                    break;
+
+                // Consent Forms
+                case 'consentimiento_informado_para_psicoterapia':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/consentimiento-informado-para-psicoterapia_shortcode.php';
+                    break;
+
+                case 'consentimiento_informado_para_terapia_en_linea':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/consentimiento-informado-para-terapia-en-linea_shortcode.php';
+                    break;
+
+                case 'consentimiento_para_divulgacion_de_informacion':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/consentimiento-para-divulgacion-de-informacion_shortcode.php';
                     break;
 
                 default:
@@ -1752,7 +2054,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             }
 
             $json_data      = wp_json_encode( $form_data );
-            $encryption_key = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
 
             global $wpdb;
             $forms_table = $wpdb->prefix . 'cree_consejeria_client_forms_master';
@@ -1796,7 +2098,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             global $wpdb;
             $notes_table_name = $wpdb->prefix . 'cree_consejeria_session_notes';
-            $encryption_key   = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+            $encryption_key = $this->get_encryption_key();
 
             $note_id   = isset( $_POST['note_id'] ) ? intval( $_POST['note_id'] ) : 0;
             $note_text = isset( $_POST['note_text'] ) ? sanitize_textarea_field( $_POST['note_text'] ) : '';
@@ -1819,6 +2121,16 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             } else {
                 wp_send_json_error( array( 'message' => 'Database update error: ' . $wpdb->last_error ) );
             }
+        }
+
+        private function get_encryption_key() {
+            $key = get_option( 'cree_consejeria_encryption_key' );
+            if ( ! $key ) {
+                // Generate a persistent 64-character key on first run
+                $key = wp_generate_password( 64, true, true );
+                update_option( 'cree_consejeria_encryption_key', $key );
+            }
+            return $key;
         }
 
         /**

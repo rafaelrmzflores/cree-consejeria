@@ -1,22 +1,26 @@
 <?php
 /**
  * View Template: Intake Form Layout
- * Variable $attributes is inherited directly from the class controller file.
  */
-// Safety check: block direct entry
 if ( ! defined( 'ABSPATH' ) ) { exit; } 
 
-$form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty( $attributes['type'] ) ) 
-    ? $attributes['type'] 
-    : 'client_registration_short_form';
-    
+// Ensures the form type matches the assigned database slug exactly
+$form_type_value = 'registration_short_form'; // (or whatever the specific form slug is)
+if ( isset( $attributes ) && is_array( $attributes ) && ! empty( $attributes['type'] ) ) {
+    $form_type_value = $attributes['type'];
+} elseif ( isset( $_POST['form_type'] ) && ! empty( $_POST['form_type'] ) ) {
+    $form_type_value = sanitize_text_field( $_POST['form_type'] );
+}
+
+$current_user = wp_get_current_user();
+$user_email   = ( $current_user->exists() ) ? $current_user->user_email : '';
+
 ?>
 <div class="cree-form-container">
     <form id="clientRegistrationForm">
         <input type="hidden" name="form_type" value="<?php echo esc_attr( $form_type_value ); ?>">
-        
+        <!-- <input type="hidden" name="user_ip" value="<?php echo esc_attr( ! empty( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '' ); ?>"> -->
         <h1>Client Registration Short Form</h1>
-
         <h2>Client Information:</h2>
         
         <div class="form-row">
@@ -29,7 +33,6 @@ $form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty(
                 <input type="date" id="dob" name="dob" required>
             </div>
         </div>
-
         <div class="form-row">
             <div class="form-group" style="flex: 2;">
                 <label for="address">Address</label>
@@ -44,14 +47,12 @@ $form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty(
                 <input type="text" id="zip" name="zip" required>
             </div>
         </div>
-
         <div class="form-row">
             <div class="form-group">
                 <label for="mailing_address">Mailing Address (if different)</label>
                 <input type="text" id="mailing_address" name="mailing_address">
             </div>
         </div>
-
         <div class="form-row">
             <div class="form-group">
                 <label for="cell_phone">Cell Phone</label>
@@ -66,14 +67,12 @@ $form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty(
                 <input type="tel" id="work_phone" name="work_phone">
             </div>
         </div>
-
         <div class="form-row">
             <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" name="email" required>
+                <input type="email" id="email" name="email" value="<?php echo esc_attr( $user_email ); ?>" required>
             </div>
         </div>
-
         <div class="checkbox-group">
             <div class="checkbox-item">
                 <input type="radio" id="gender_male" name="gender" value="Male">
@@ -100,7 +99,6 @@ $form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty(
                 <label for="status_widowed">Widowed</label>
             </div>
         </div>
-
         <h2>Medical Information:</h2>
         <div class="form-row" style="align-items: center; margin-bottom: 15px;">
             <label style="font-weight: bold; margin-right: 15px;">Is the client on medication Y/N</label>
@@ -113,17 +111,14 @@ $form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty(
                 <label for="med_no">N</label>
             </div>
         </div>
-
         <div class="full-width-textarea">
             <label for="medications_list">List medications</label>
             <textarea id="medications_list" name="medications_list" rows="2"></textarea>
         </div>
-
         <div class="full-width-textarea">
             <label for="medical_conditions">List any medical conditions we should be aware of</label>
             <textarea id="medical_conditions" name="medical_conditions" rows="2"></textarea>
         </div>
-
         <h2>Emergency Contact Information:</h2>
         <div class="form-row">
             <div class="form-group">
@@ -147,7 +142,6 @@ $form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty(
                 <input type="text" id="emergency_relationship" name="emergency_relationship" required>
             </div>
         </div>
-
         <div class="signature-section">
             <div class="form-row" style="display: flex; gap: 15px;">
                 <div class="form-group" style="flex: 2;">
@@ -160,11 +154,9 @@ $form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty(
                 </div>
             </div>
         </div>
-
         <div class="submit-btn-container" style="margin-top: 20px;">
             <button type="submit" class="submit-btn">Submit Registration</button>
         </div>
         <div id="form-response-message" style="margin-top:20px; font-weight:bold; text-align:center;"></div>
-
     </form>
 </div>

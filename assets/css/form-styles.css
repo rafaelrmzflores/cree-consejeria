@@ -1,264 +1,269 @@
-/* Container Box Frame */
-.cree-form-container {
-  max-width: 750px !important;
-  margin: 30px auto !important;
-  background: #ffffff !important;
-  padding: 40px !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08) !important;
+:root {
+  --cree-primary: #0056b3;
+  --cree-primary-hover: #004085;
+  --cree-focus-ring: rgba(34, 113, 177, 0.3);
+  --cree-border: #8c8f94;
+  --cree-bg-light: #f6f7f7;
+  --cree-text: #2c3338;
+  --cree-heading: #1d2327;
+  --cree-error: #dc3232;
+}
+
+/* Base Container using Specificity instead of !important */
+#page .cree-form-container,
+body .cree-form-container {
+  max-width: 750px;
+  margin: 30px auto;
+  background: #ffffff;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
   font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-  box-sizing: border-box !important;
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-sizing: border-box;
+  position: relative; /* For loading overlay */
 }
 
-/* Clear Headings Formatting */
+/* Headings */
 .cree-form-container h1 {
-  font-size: 26px !important;
-  color: #0056b3 !important;
-  margin-bottom: 25px !important;
-  text-align: center !important;
-  border-bottom: 3px solid #f0f2f5 !important;
-  padding-bottom: 15px !important;
-  text-transform: none !important;
+  font-size: 26px;
+  color: var(--cree-primary);
+  margin-bottom: 25px;
+  text-align: center;
+  border-bottom: 3px solid var(--cree-bg-light);
+  padding-bottom: 15px;
 }
 
-.cree-form-container h2 {
-  font-size: 18px !important;
-  color: #1d2327 !important;
-  margin: 30px 0 15px 0 !important;
-  padding-bottom: 5px !important;
-  border-bottom: 1px solid #e0e0e0 !important;
-  text-transform: none !important;
-}
-
-/* Force Flex Rows to sit horizontally side-by-side */
-.cree-form-container .form-row {
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: wrap !important;
-  gap: 20px !important;
-  margin-bottom: 15px !important;
-  width: 100% !important;
-}
-
-.cree-form-container .form-group {
-  display: flex !important;
-  flex-direction: column !important;
-  flex: 1;
-  min-width: 150px !important;
-}
-
-.cree-form-container label {
-  font-weight: 600 !important;
-  font-size: 14px !important;
-  margin-bottom: 6px !important;
-  color: #1d2327 !important;
-}
-
-/* Target fields explicitly to kill theme paper underline styles */
+/* Form Inputs */
 .cree-form-container form input[type="text"],
 .cree-form-container form input[type="date"],
 .cree-form-container form input[type="tel"],
 .cree-form-container form input[type="email"],
-.cree-form-container form textarea {
-  display: block !important;
-  width: 100% !important;
-  height: auto !important;
-  padding: 10px 12px !important;
-  border: 1px solid #8c8f94 !important;
-  border-radius: 4px !important;
-  font-size: 15px !important;
-  color: #2c3338 !important;
-  background-color: #ffffff !important;
-  box-sizing: border-box !important;
-  box-shadow: none !important;
+.cree-form-container form textarea,
+.cree-form-container form select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--cree-border);
+  border-radius: 4px;
+  font-size: 15px;
+  color: var(--cree-text);
+  box-sizing: border-box;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
-/* Active Highlight Focus */
 .cree-form-container form input:focus,
-.cree-form-container form textarea:focus {
-  border-color: #2271b1 !important;
-  box-shadow: 0 0 0 2px rgba(34, 113, 177, 0.3) !important;
-  outline: none !important;
+.cree-form-container form textarea:focus,
+.cree-form-container form select:focus {
+  border-color: var(--cree-primary);
+  box-shadow: 0 0 0 2px var(--cree-focus-ring);
+  outline: none;
 }
 
-.cree-form-container .full-width-textarea {
-  display: flex !important;
-  flex-direction: column !important;
-  margin-bottom: 15px !important;
-  width: 100% !important;
+/* Invalid Field State */
+.cree-form-container form .cree-invalid-field {
+  border-color: var(--cree-error);
+  box-shadow: 0 0 0 2px rgba(220, 50, 50, 0.2);
 }
 
-/* Modern Rounded Layout background for Multi-check Radio bars */
-.cree-form-container .checkbox-group {
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: wrap !important;
-  gap: 15px !important;
-  background: #f6f7f7 !important;
-  padding: 12px 15px !important;
-  border-radius: 6px !important;
-  margin: 15px 0 !important;
-  align-items: center !important;
-}
-
-.cree-form-container .checkbox-item {
-  display: flex !important;
-  align-items: center !important;
-}
-
-.cree-form-container .checkbox-item input[type="radio"] {
-  margin: 0 6px 0 0 !important;
-  width: 16px !important;
-  height: 16px !important;
-  flex-shrink: 0 !important;
-}
-
-.cree-form-container .checkbox-item label {
-  margin-bottom: 0 !important;
-  font-weight: 500 !important;
-  font-size: 14px !important;
-}
-
-/* Yellow Highlighted Signature panel */
-.cree-form-container .signature-section {
-  display: flex !important;
-  flex-direction: row !important;
-  gap: 20px !important;
-  background: #fffcf0 !important;
-  border: 1px solid #e6b800 !important;
-  padding: 20px !important;
-  border-radius: 6px !important;
-  margin-top: 25px !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-/* Button layout fixes */
-.cree-form-container .submit-btn-container {
-  margin-top: 30px !important;
-  text-align: right !important;
-  width: 100% !important;
-}
-
-.cree-form-container .submit-btn {
-  background: #0056b3 !important;
-  color: #ffffff !important;
-  border: none !important;
-  padding: 12px 30px !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  border-radius: 4px !important;
-  cursor: pointer !important;
-  box-shadow: none !important;
-}
-
-.cree-form-container .submit-btn:hover {
-  background: #004085 !important;
-}
-
-/* Mobile Breakpoint rules */
-@media (max-width: 600px) {
-  .cree-form-container {
-    padding: 20px !important;
-  }
-  .cree-form-container .form-row,
-  .cree-form-container .signature-section {
-    flex-direction: column !important;
-    gap: 15px !important;
-  }
-}
-
-/* Substance Abuse Intake Form */
-.substance-row {
-  margin-bottom: 15px;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 10px;
-}
-.box-group {
-  display: flex;
-  gap: 10px;
-  margin-top: 5px;
-}
-
-/* Hide the actual radio button */
+/* Custom Radio Buttons Accessibility & Styling */
 .box-group input[type="radio"] {
-  display: none;
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
 }
-
-/* Style the label as a box */
-.box-button {
-  flex: 1; /* Makes all buttons equal width */
+.box-group .box-button {
+  flex: 1;
   text-align: center;
   padding: 8px 12px;
   border: 1px solid #ccc;
   border-radius: 4px;
   cursor: pointer;
-  background: #f9f9f9;
+  background: var(--cree-bg-light);
   transition: all 0.2s;
 }
-
-/* Highlight the box when selected */
 .box-group input[type="radio"]:checked + .box-button {
-  background: #0073aa;
+  background: var(--cree-primary);
   color: white;
-  border-color: #0073aa;
+  border-color: var(--cree-primary);
 }
-.form-group-compact {
-  flex: 1; /* Allow them to grow */
-  max-width: 100px; /* Lock them at a max size instead of an absolute size */
-}
-.substance-comparison-row {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* Focus state for keyboard navigation */
+.box-group input[type="radio"]:focus-visible + .box-button {
+  outline: 2px solid var(--cree-primary);
+  outline-offset: 2px;
 }
 
-.box-group {
+/* Wizard Steps & Loading Overlay */
+.cree-form-step {
+  display: none;
+}
+.cree-form-step.active-step {
+  display: block;
+}
+
+.cree-loading-overlay {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 10;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  border-radius: 8px;
+}
+.cree-loading-spinner {
+  border: 4px solid var(--cree-bg-light);
+  border-top: 4px solid var(--cree-primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: cree-spin 1s linear infinite;
+}
+@keyframes cree-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+/* ==========================================================================
+   Multi-Step Wizard Navigation Buttons
+   ========================================================================== */
+
+/* Container spacing and divider line */
+.cree-form-container .submit-btn-container {
   display: flex;
   align-items: center;
-  gap: 10px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--cree-border);
+  width: 100%;
 }
 
-/* Force the "Lifetime" and "Past Year" labels to be the same width */
-.box-group small {
-  display: inline-block;
-  width: 100px;
-  /* font-weight: bold; */
-}
-/* Contenedor principal de la lista */
-.cree-records-list {
-  margin-bottom: 30px;
-  padding-left: 25px;
-  line-height: 2;
-  color: #444;
-  list-style-type: disc;
+/* Secondary Action: Previous / Back Button (Atrás) */
+.cree-form-container .submit-btn.cree-prev-step {
+  background-color: #6c757d; /* Neutral gray */
+  color: #ffffff;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
 }
 
-/* Elementos de lista estándar */
-.cree-records-list li {
-  padding: 8px;
+.cree-form-container .submit-btn.cree-prev-step:hover,
+.cree-form-container .submit-btn.cree-prev-step:focus {
+  background-color: #5a6268;
+  box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+  outline: none;
 }
 
-/* Elemento especial de divulgación completa (Último li) */
-.cree-records-list li.full-disclosure {
-  background: #fff5f5;
-  padding: 8px;
-  /* color: #bd2130;
-  font-weight: bold;
-  line-height: 1.6;
-  margin-top: 10px;
-  list-style-position: inside; */
-}
-.form-group.is-hidden {
-  display: none !important;
-}
-/* Cuando el formulario se envía con éxito... */
-.cree-form-container.form-submitted form > * {
-  display: none !important;
+/* Primary Action: Next Button (Siguiente Paso) & Submit */
+.cree-form-container .submit-btn.cree-next-step,
+.cree-form-container button[type="submit"].submit-btn {
+  background-color: var(--cree-primary);
+  color: #ffffff;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
 }
 
-/* ...forzamos que ÚNICAMENTE el mensaje de éxito permanezca visible y se muestre */
-.cree-form-container.form-submitted #form-response-message {
-  display: block !important;
+.cree-form-container .submit-btn.cree-next-step:hover,
+.cree-form-container .submit-btn.cree-next-step:focus,
+.cree-form-container button[type="submit"].submit-btn:hover,
+.cree-form-container button[type="submit"].submit-btn:focus {
+  background-color: var(--cree-primary-hover);
+  box-shadow: 0 4px 8px var(--cree-focus-ring);
+  outline: none;
+}
+
+/* Mobile Responsiveness for Wizard Buttons */
+@media (max-width: 600px) {
+  .cree-form-container .submit-btn-container {
+    flex-direction: column-reverse; /* Puts 'Next' on top of 'Back' on mobile */
+    gap: 15px;
+  }
+
+  .cree-form-container .submit-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* ==========================================================================
+   Substance Abuse Frequency Grid (Fix for Overlapping Buttons)
+   ========================================================================== */
+
+.substance-grid .substance-comparison-row {
+  padding: 15px 0;
+  border-bottom: 1px solid var(--cree-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* Forces vertical space between Lifetime and Past Year rows */
+}
+
+.substance-grid .box-group {
+  display: flex;
+  flex-wrap: wrap; /* Allows safe wrapping on very small phone screens */
+  align-items: center;
+  gap: 8px; /* Strict horizontal and vertical spacing so buttons never touch */
+  margin: 0 !important; /* Overrides the old inline margins from the PHP file */
+}
+
+.substance-grid .box-group small {
+  flex: 0 0 85px; /* Locks the label width so all button columns start at the exact same horizontal position */
+  font-weight: 600;
+  color: var(--cree-text);
+  font-size: 13px;
+}
+
+.substance-grid .box-button {
+  flex: 1 1 0; /* Forces all buttons in the row to be equal width */
+  min-width: 70px;
+  text-align: center;
+  padding: 8px 10px;
+  margin: 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--cree-bg-light);
+  font-size: 13.5px;
+  transition: all 0.2s ease;
+}
+
+.substance-grid input[type="radio"]:checked + .box-button {
+  background: var(--cree-primary);
+  color: #ffffff;
+  border-color: var(--cree-primary);
+  box-shadow: 0 2px 4px rgba(0, 86, 179, 0.2);
+}
+/* ==========================================================================
+   Form Field Vertical Spacing
+   ========================================================================== */
+
+/* Add consistent vertical breathing room to standalone fields and textareas */
+.cree-form-container .form-group,
+.cree-form-container .full-width-textarea {
+  margin-bottom: 24px;
+}
+
+/* Ensure flex rows have consistent spacing and gaps */
+.cree-form-container .form-row {
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+/* If a form group is inside a flex row, let the row's 'gap' property handle the spacing instead */
+.cree-form-container .form-row .form-group {
+  margin-bottom: 0;
+}
+
+/* Prevent double-spacing at the very end of a form step */
+.cree-form-container .cree-form-step > .form-group:last-of-type,
+.cree-form-container .cree-form-step > .form-row:last-of-type,
+.cree-form-container .cree-form-step > .full-width-textarea:last-of-type {
+  margin-bottom: 0;
 }

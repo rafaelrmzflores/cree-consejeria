@@ -182,18 +182,18 @@ class CREE_Client_Login_Shortcode {
         </style>
 
         <div class="cree-login-card">
-            <h2>Client Portal</h2>
-            <p class="cree-subtitle">Sign in to view and manage your forms</p>
+            <h2>Portal del Cliente</h2>
+            <p class="cree-subtitle">Inicia sesión para ver y gestionar tus formularios</p>
 
             <?php if ( $login_error ) : ?>
                 <div class="cree-alert cree-alert-error">
-                    <strong>Invalid Credentials:</strong> Please verify your email address and password.
+                    <strong>Credenciales no válidas:</strong> Por favor, verifica tu dirección de correo electrónico y tu contraseña.
                 </div>
             <?php endif; ?>
 
             <?php if ( $logged_out ) : ?>
                 <div class="cree-alert cree-alert-info">
-                    You have been logged out successfully.
+                    Has cerrado sesión correctamente.
                 </div>
             <?php endif; ?>
 

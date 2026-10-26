@@ -92,11 +92,24 @@ function creeUnassignForm(assignedId) {
     });
 }
 
-function creeSelectClient(clientId, elem) {
+var activeClientId = 0;
+var currentActiveTab = 'prof-forms'; // NEW: Tracks the active tab across refreshes
+
+function creeSwitchProfileTab(evt, tabId) {
+    evt.preventDefault();
+    currentActiveTab = tabId; // Save the selected tab to memory
+    jQuery('.cree-prof-tab').removeClass('active');
+    jQuery(evt.currentTarget).addClass('active');
+    jQuery('.cree-prof-content').hide();
+    jQuery('#' + tabId).show(); 
+}
+
+function creeSelectClient(clientId, elem, forceTab = null) {
     activeClientId = clientId;
+    if (forceTab) currentActiveTab = forceTab; // Override if we are forcing a tab jump
+    
     jQuery('.cree-client-card').removeClass('active-client');
     jQuery(elem).addClass('active-client');
-
     jQuery('#cree-profile-placeholder').hide();
     jQuery('#cree-profile-active-content').show().html('<p>Loading client workspace...</p>');
 
@@ -107,7 +120,13 @@ function creeSelectClient(clientId, elem) {
     }, function(res) {
         if (res && res.success) {
             jQuery('#cree-profile-active-content').html(res.data.html);
-            // CRITICAL: Re-bind all tab switching, notes editing, and form submission events for this client view
+            
+            // Automatically restore the tab the user was just looking at
+            jQuery('.cree-prof-tab').removeClass('active');
+            jQuery('.cree-prof-content').hide();
+            jQuery('button[onclick*="' + currentActiveTab + '"]').addClass('active');
+            jQuery('#' + currentActiveTab).show();
+
             creeBindProfileEvents();
         } else {
             jQuery('#cree-profile-active-content').html('<p style="color:red;">' + (res.data ? (res.data.message || res.data) : 'Failed to retrieve profile data.') + '</p>');
@@ -117,42 +136,35 @@ function creeSelectClient(clientId, elem) {
     });
 }
 
-function creeSwitchProfileTab(evt, tabId) {
-    evt.preventDefault();
-    jQuery('.cree-prof-tab').removeClass('active');
-    jQuery(evt.currentTarget).addClass('active');
-    jQuery('.cree-prof-content').hide();
-    jQuery('#' + tabId).show();
+function creeUpdateAppointmentStatus(appointmentId, newStatus) {
+    if (!confirm('Are you sure you want to change appointment status to ' + newStatus + '?')) return;
+    
+    jQuery.post(CREE_NOTE_FORM.ajax_url, {
+        action: 'cree_update_appointment_status',
+        security: CREE_NOTE_FORM.nonce,
+        appointment_id: appointmentId,
+        status: newStatus
+    }, function(res) {
+        if (res.success) {
+            if (newStatus === 'completed') {
+                // Refresh and force jump straight to the Session Notes tab
+                creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'), 'prof-notes');
+                
+                // Pre-fill today's date after the DOM reloads
+                setTimeout(function() {
+                    let today = new Date().toISOString().split('T')[0];
+                    jQuery('#cree-profile-add-note input[name="session_date"]').val(today);
+                    jQuery('#cree-profile-add-note textarea[name="note_text"]').focus();
+                }, 500); 
+            } else {
+                // Refresh but keep them on the current Appointments tab
+                creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
+            }
+        } else {
+            alert(res.data.message || res.data);
+        }
+    });
 }
-
-// function creeBindProfileEvents() {
-//     // Submit Assign Form
-//     jQuery('#cree-profile-assign-form').off('submit').on('submit', function(e) {
-//         e.preventDefault();
-//         jQuery.post(CREE_NOTE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_assign_form_to_client&security=' + CREE_NOTE_FORM.nonce, function(res) {
-//             alert(res.data.message || res.data);
-//             if (res.success) creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
-//         });
-//     });
-
-//     // Submit Note
-//     jQuery('#cree-profile-add-note').off('submit').on('submit', function(e) {
-//         e.preventDefault();
-//         jQuery.post(CREE_NOTE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_save_session_note&security=' + CREE_NOTE_FORM.nonce, function(res) {
-//             alert(res.data.message || res.data);
-//             if (res.success) creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
-//         });
-//     });
-
-//     // Submit Appointment
-//     jQuery('#cree-profile-add-appt').off('submit').on('submit', function(e) {
-//         e.preventDefault();
-//         jQuery.post(CREE_NOTE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_book_appointment&security=' + CREE_NOTE_FORM.nonce, function(res) {
-//             alert(res.data.message || res.data);
-//             if (res.success) creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
-//         });
-//     });
-// }
 
 function creeBindProfileEvents() {
     // 1. Submit Assign Form
@@ -252,21 +264,46 @@ function creeExportPDF(formId) {
     });
 }
 
-function creeUpdateAppointmentStatus(appointmentId, newStatus) {
-    if (!confirm('Are you sure you want to change appointment status to ' + newStatus + '?')) return;
-
-    jQuery.post(CREE_NOTE_FORM.ajax_url, {
-        action: 'cree_update_appointment_status',
-        security: CREE_NOTE_FORM.nonce,
-        appointment_id: appointmentId,
-        status: newStatus
-    }, function(res) {
-        if (res.success) {
-            creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
-        } else {
-            alert(res.data.message || res.data);
-        }
+function creeEditAppointment(id, dateStr, duration, notes) {
+    jQuery('#edit_appointment_id').val(id);
+    jQuery('#cree-profile-add-appt input[name="appointment_date"]').val(dateStr);
+    jQuery('#cree-profile-add-appt select[name="duration_minutes"]').val(duration);
+    jQuery('#cree-profile-add-appt input[name="notes"]').val(notes);
+    
+    jQuery('#cree-appt-form-title').text('Edit Appointment');
+    jQuery('#cree-appt-submit-btn').text('💾 Update Session');
+    jQuery('#cree-appt-cancel-edit-btn').show().off('click').on('click', function() {
+        jQuery('#cree-profile-add-appt')[0].reset();
+        jQuery('#edit_appointment_id').val('');
+        jQuery('#cree-appt-form-title').text('Schedule New Session');
+        jQuery('#cree-appt-submit-btn').text('📅 Book Session');
+        jQuery(this).hide();
     });
+    
+    // Scroll smoothly to the top of the form
+    window.scrollTo({ top: jQuery('#cree-profile-add-appt').offset().top - 50, behavior: "smooth" });
+}
+
+function creePrintNote(btn) {
+    var $card = jQuery(btn).closest('.cree-note-card');
+    var dateText = $card.find('.cree-note-date-text').text();
+    var noteText = $card.find('.cree-note-text-view').text();
+    var clientName = jQuery('.cree-client-card.active-client strong').text() || 'Client';
+
+    var printWin = window.open('', '_blank');
+    printWin.document.write('<!DOCTYPE html><html><head><title>Print Session Note</title>');
+    printWin.document.write('<style>');
+    printWin.document.write('body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif; padding: 40px; color: #111827; }');
+    printWin.document.write('.header { border-bottom: 2px solid #10b981; padding-bottom: 15px; margin-bottom: 25px; }');
+    printWin.document.write('.header h2 { margin: 0 0 5px 0; color: #065f46; }');
+    printWin.document.write('.content { font-size: 14px; line-height: 1.6; white-space: pre-wrap; color: #374151; }');
+    printWin.document.write('@media print { @page { margin: 2cm; } .no-print { display: none; } }');
+    printWin.document.write('</style></head><body>');
+    printWin.document.write('<div class="no-print" style="text-align: right; margin-bottom: 20px;"><button onclick="window.print()" style="padding:8px 16px; background:#2563eb; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">🖨️ Print to PDF</button></div>');
+    printWin.document.write('<div class="header"><h2>Session Note: ' + clientName + '</h2><div style="font-weight:bold;">' + dateText + '</div></div>');
+    printWin.document.write('<div class="content">' + noteText + '</div>');
+    printWin.document.write('</body></html>');
+    printWin.document.close();
 }
 
 // Client Directory Search Filter

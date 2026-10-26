@@ -5,9 +5,16 @@
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; } 
 
-$form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty( $attributes['type'] ) ) 
-    ? $attributes['type'] 
-    : 'consentimiento_informado_para_terapia_en_linea';
+$form_type_value = 'registration_short_form'; // (or whatever the specific form slug is)
+if ( isset( $attributes ) && is_array( $attributes ) && ! empty( $attributes['type'] ) ) {
+    $form_type_value = $attributes['type'];
+} elseif ( isset( $_POST['form_type'] ) && ! empty( $_POST['form_type'] ) ) {
+    $form_type_value = sanitize_text_field( $_POST['form_type'] );
+}
+
+$current_user = wp_get_current_user();
+$user_email   = ( $current_user->exists() ) ? $current_user->user_email : '';
+
 ?>
 <div class="cree-form-container">
     <form id="cree-online-therapy-consent-form">
@@ -66,7 +73,7 @@ $form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty(
         <div class="form-row">
             <div class="form-group">
                 <label for="email">Correo Electrónico</label>
-                <input type="email" id="email" name="email" required>
+                <input type="email" id="email" name="email" value="<?php echo esc_attr( $user_email ); ?>" required>
             </div>
         </div>
 

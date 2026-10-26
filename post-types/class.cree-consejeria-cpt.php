@@ -10,6 +10,9 @@ if ( ! class_exists( 'CREE_Consejeria_Post_Type' ) ) {
             add_action('init', array($this, 'register_client_forms_master_table'));
             add_action('add_meta_boxes', array($this, 'add_cliet_forms_metabox'));
 
+            // Hook to delete custom database row when post is trashed and permanently deleted
+            add_action('before_delete_post', array($this, 'delete_secure_table_record'));
+
         }
 
         public function create_client_intake_post_type() {
@@ -96,6 +99,41 @@ if ( ! class_exists( 'CREE_Consejeria_Post_Type' ) ) {
                 'normal',             
                 'high'                
             );
+        }
+
+        /**
+         * Automatically deletes the encrypted custom table row when the CPT is permanently deleted
+         */
+        public function delete_secure_table_record($post_id) {
+            // Only execute if the post being deleted is our specific intake form
+            if (get_post_type($post_id) !== 'cree-client-intake') {
+                return;
+            }
+
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_consejeria_client_forms_master';
+            
+            // Grab the exact database row ID we linked to this post during submission
+            $custom_table_id = get_post_meta($post_id, '_cree_custom_table_record_id', true);
+
+            if ($custom_table_id) {
+                // Delete the exact linked row
+                $wpdb->delete(
+                    $table_name,
+                    array('id' => $custom_table_id),
+                    array('%d')
+                );
+            } else {
+                // Fallback for older legacy forms that didn't have the ID linked
+                $post = get_post($post_id);
+                $client_name = explode(' - ', $post->post_title)[0];
+                
+                // Safely delete only the most recent form matching this client to avoid wiping all their forms
+                $wpdb->query( $wpdb->prepare(
+                    "DELETE FROM {$table_name} WHERE client_name = %s ORDER BY id DESC LIMIT 1",
+                    trim($client_name)
+                ) );
+            }
         }
 
         public function render_intake_data_metabox($post) {
