@@ -5,10 +5,15 @@
  */
 // Safety check: block direct entry
 if ( ! defined( 'ABSPATH' ) ) { exit; } 
+
+$form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty( $attributes['type'] ) ) 
+    ? $attributes['type'] 
+    : 'client_registration_short_form';
+    
 ?>
 <div class="cree-form-container">
     <form id="clientRegistrationForm">
-        <input type="hidden" name="form_type" value="<?php echo esc_attr( $attributes['type'] ); ?>">
+        <input type="hidden" name="form_type" value="<?php echo esc_attr( $form_type_value ); ?>">
         
         <h1>Client Registration Short Form</h1>
 

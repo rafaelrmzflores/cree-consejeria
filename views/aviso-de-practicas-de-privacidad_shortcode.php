@@ -4,10 +4,15 @@
  * Language: Spanish
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; } 
+
+$form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty( $attributes['type'] ) ) 
+    ? $attributes['type'] 
+    : 'aviso_de_practicas_de_privacidad';
+
 ?>
 <div class="cree-form-container">
     <form id="privacyPracicesNoticeForm">
-        <input type="hidden" name="form_type" value="<?php echo esc_attr( $attributes['type'] ); ?>">
+        <input type="hidden" name="form_type" value="<?php echo esc_attr( $form_type_value ); ?>">
         <input type="hidden" name="user_ip" value="<?php echo esc_attr( ! empty( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '' ); ?>">
 
         <h1>Aviso de Prácticas de Privacidad</h1>

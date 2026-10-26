@@ -4,10 +4,14 @@
  * Language: Spanish
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; } 
+
+$form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty( $attributes['type'] ) ) 
+    ? $attributes['type'] 
+    : 'consentimiento_informado_para_terapia_en_linea';
 ?>
 <div class="cree-form-container">
-    <form id="onlineTherapyConsentForm">
-        <input type="hidden" name="form_type" value="<?php echo esc_attr( $attributes['type'] ); ?>">
+    <form id="cree-online-therapy-consent-form">
+        <input type="hidden" name="form_type" value="<?php echo esc_attr( $form_type_value ); ?>">
         <input type="hidden" name="user_ip" value="<?php echo esc_attr( ! empty( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '' ); ?>">
 
         <h1>Consentimiento Informado para Terapia en Línea</h1>

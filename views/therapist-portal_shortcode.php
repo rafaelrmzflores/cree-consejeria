@@ -1,402 +1,248 @@
 <?php
-/**
- * Therapist Portal View Template
- * 
- * @package CreeConsejeriaCFM
- */
+if ( ! defined( 'ABSPATH' ) ) exit;
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
+$current_user = wp_get_current_user();
+
+// Fetch all registered clients
+$clients = get_users( array(
+    'role__in' => array( 'subscriber', 'customer', 'client' ),
+    'orderby'  => 'display_name',
+    'order'    => 'ASC',
+) );
 ?>
 
-<div class="cree-portal-wrapper" style="max-width: 1100px; margin: 30px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-    <h2 style="color: #1d2327; border-bottom: 2px solid #f0f0f1; padding-bottom: 12px; margin-bottom: 20px;">
-        <?php esc_html_e( 'Portal del Terapeuta (Clinical Dashboard)', 'cree-consejeria' ); ?>
-    </h2>
+<div class="cree-portal-wrapper" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; color: #111827;">
 
-    <!-- Tab Navigation -->
-    <div class="cree-portal-tabs" style="display: flex; border-bottom: 2px solid #e5e7eb; margin-bottom: 24px; gap: 8px; flex-wrap: wrap;">
-        <button class="cree-tab-btn active" onclick="creeSwitchTab(event, 'cree-tab-intakes')" style="padding: 12px 18px; font-weight: 600; font-size: 14px; background: none; border: none; border-bottom: 3px solid #2563eb; cursor: pointer; color: #2563eb;">📋 <?php esc_html_e( 'Client Intakes', 'cree-consejeria' ); ?></button>
-        <button class="cree-tab-btn" onclick="creeSwitchTab(event, 'cree-tab-notes')" style="padding: 12px 18px; font-weight: 600; font-size: 14px; background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer; color: #4b5563;">📝 <?php esc_html_e( 'Session Notes', 'cree-consejeria' ); ?></button>
-        <button class="cree-tab-btn" onclick="creeSwitchTab(event, 'cree-tab-create-client')" style="padding: 12px 18px; font-weight: 600; font-size: 14px; background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer; color: #4b5563;">➕ <?php esc_html_e( 'Create Client', 'cree-consejeria' ); ?></button>
-        <button class="cree-tab-btn" onclick="creeSwitchTab(event, 'cree-tab-appointments')" style="padding: 12px 18px; font-weight: 600; font-size: 14px; background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer; color: #4b5563;">📅 <?php esc_html_e( 'Appointments', 'cree-consejeria' ); ?></button>
-        <button class="cree-tab-btn" onclick="creeSwitchTab(event, 'cree-tab-goals')" style="padding: 12px 18px; font-weight: 600; font-size: 14px; background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer; color: #4b5563;">🎯 <?php esc_html_e( 'Treatment Goals', 'cree-consejeria' ); ?></button>
+    <!-- Header Navigation -->
+    <div style="display: flex; justify-content: space-between; align-items: center; background: #1e3a8a; color: #fff; padding: 16px 24px; border-radius: 8px 8px 0 0;">
+        <h2 style="margin: 0; font-size: 20px; color: #fff;">CREE Consejería — Therapist Workspace</h2>
+        <span style="font-size: 14px;">Logged in: <strong><?php echo esc_html( $current_user->display_name ); ?></strong></span>
     </div>
 
-    <!-- TAB 1: SUBMITTED INTAKE FORMS -->
-    <div id="cree-tab-intakes" class="cree-tab-content" style="display: block; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;">
-        <h3 style="margin-top: 0;"><?php esc_html_e( 'Submitted Intake Evaluations', 'cree-consejeria' ); ?></h3>
-        <?php
-        global $wpdb;
-        $forms_table = $wpdb->prefix . 'cree_consejeria_client_forms_master';
-        $forms = $wpdb->get_results( "SELECT id, wp_id, form_type, client_name, email, created_at FROM {$forms_table} ORDER BY created_at DESC" );
-
-        if ( empty( $forms ) ) {
-            echo '<p><em>' . esc_html__( 'No submitted intake forms found.', 'cree-consejeria' ) . '</em></p>';
-        } else {
-            echo '<table class="widefat striped" style="width:100%; border-collapse:collapse;">';
-            echo '<thead><tr><th>' . esc_html__( 'ID', 'cree-consejeria' ) . '</th><th>' . esc_html__( 'Client', 'cree-consejeria' ) . '</th><th>' . esc_html__( 'Form Type', 'cree-consejeria' ) . '</th><th>' . esc_html__( 'Date Submitted', 'cree-consejeria' ) . '</th><th>' . esc_html__( 'Actions', 'cree-consejeria' ) . '</th></tr></thead><tbody>';
-            foreach ( $forms as $f ) {
-                echo '<tr>';
-                echo '<td>#' . intval( $f->id ) . '</td>';
-                echo '<td><strong>' . esc_html( $f->client_name ) . '</strong><br><small>' . esc_html( $f->email ) . '</small></td>';
-                echo '<td>' . esc_html( ucwords( str_replace( '_', ' ', $f->form_type ) ) ) . '</td>';
-                echo '<td>' . esc_html( $f->created_at ) . '</td>';
-                echo '<td><button class="button" onclick="creeExportPDF(' . intval( $f->id ) . ')">🖨️ ' . esc_html__( 'Export PDF', 'cree-consejeria' ) . '</button></td>';
-                echo '</tr>';
-            }
-            echo '</tbody></table>';
-        }
-        ?>
-    </div>
-
-    <!-- TAB 2: SESSION NOTES (Notes History at the Bottom) -->
-    <div id="cree-tab-notes" class="cree-tab-content" style="display: none; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;">
-        <h3 style="margin-top: 0;"><?php esc_html_e( 'Record Clinical Session Note', 'cree-consejeria' ); ?></h3>
-        <form id="cree-session-note-form" style="max-width: 600px; margin-bottom: 25px;">
-            <?php wp_nonce_field( 'cree_secure_note_nonce', 'security' ); ?>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 5px;"><?php esc_html_e( 'Select Client:', 'cree-consejeria' ); ?></label>
-                <select id="cree_note_client_id" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;" required>
-                    <option value="">-- <?php esc_html_e( 'Select Client', 'cree-consejeria' ); ?> --</option>
-                    <?php if ( ! empty( $clients ) ) : ?>
-                        <?php foreach ( $clients as $client ) : ?>
-                            <option value="<?php echo intval( $client->ID ); ?>">
-                                <?php echo esc_html( $client->display_name . ' (' . $client->user_email . ')' ); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </select>
-            </div>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 5px;"><?php esc_html_e( 'Session Date:', 'cree-consejeria' ); ?></label>
-                <input type="date" id="cree_session_date" value="<?php echo esc_attr( date( 'Y-m-d' ) ); ?>" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;" required>
-            </div>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 5px;"><?php esc_html_e( 'Clinical Note (Encrypted Storage):', 'cree-consejeria' ); ?></label>
-                <textarea id="cree_note_text" rows="5" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;" required placeholder="<?php esc_attr_e( 'Enter encrypted progress notes here...', 'cree-consejeria' ); ?>"></textarea>
-            </div>
-            
-            <button type="submit" class="button button-primary" style="background: #2563eb; border-color: #2563eb; color: #fff; padding: 8px 16px; font-weight: bold; cursor: pointer;"><?php esc_html_e( 'Save Session Note', 'cree-consejeria' ); ?></button>
-            <div id="cree-note-response" style="margin-top: 10px; font-weight: bold;"></div>
-        </form>
-
-        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 25px 0;">
+    <!-- Main Workspace Area -->
+    <div style="display: grid; grid-template-columns: 300px 1fr; background: #fff; border: 1px solid #e5e7eb; border-top: none; min-height: 600px;">
         
-        <h3><?php esc_html_e( 'Previous Session Notes', 'cree-consejeria' ); ?></h3>
-        <div id="cree-client-notes-history">
-            <p><em><?php esc_html_e( 'Select a client above to view their history.', 'cree-consejeria' ); ?></em></p>
+        <!-- SIDEBAR: CLIENT LIST -->
+        <div style="border-right: 1px solid #e5e7eb; background: #f9fafb; padding: 16px;">
+            <h3 style="margin-top: 0; font-size: 15px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Client Directory</h3>
+            <input type="text" id="cree-client-search" placeholder="🔍 Search clients..." style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; margin-bottom: 12px; font-size: 13px;">
+
+            <div id="cree-client-directory-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 500px; overflow-y: auto;">
+                <?php if ( ! empty( $clients ) ) : ?>
+                    <?php foreach ( $clients as $c ) : ?>
+                        <div class="cree-client-card" data-client-id="<?php echo intval( $c->ID ); ?>" onclick="creeSelectClient(<?php echo intval( $c->ID ); ?>, this)" style="padding: 10px 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                            <strong style="display: block; font-size: 14px; color: #1f2937;"><?php echo esc_html( $c->display_name ); ?></strong>
+                            <span style="font-size: 12px; color: #6b7280;"><?php echo esc_html( $c->user_email ); ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <p style="font-size: 13px; color: #6b7280;">No client accounts found.</p>
+                <?php endif; ?>
+            </div>
         </div>
-    </div>
 
-    <!-- TAB 3: CREATE CLIENT -->
-    <div id="cree-tab-create-client" class="cree-tab-content" style="display: none; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;">
-        <h3 style="margin-top: 0;"><?php esc_html_e( 'Create New Client Account', 'cree-consejeria' ); ?></h3>
-        <p style="color: #4b5563; font-size: 14px; margin-bottom: 20px;"><?php esc_html_e( 'Creating a client account automatically generates secure login credentials and emails a temporary password setup link.', 'cree-consejeria' ); ?></p>
-        
-        <form id="cree-add-client-form" style="max-width: 600px;">
-            <?php wp_nonce_field( 'cree_secure_note_nonce', 'security' ); ?>
-            
-            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
-                <div style="flex: 1; min-width: 200px;">
-                    <label for="cree_new_first_name" style="font-weight: 600; display: block; margin-bottom: 5px;"><?php esc_html_e( 'First Name:', 'cree-consejeria' ); ?></label>
-                    <input type="text" id="cree_new_first_name" required style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
-                </div>
-                <div style="flex: 1; min-width: 200px;">
-                    <label for="cree_new_last_name" style="font-weight: 600; display: block; margin-bottom: 5px;"><?php esc_html_e( 'Last Name:', 'cree-consejeria' ); ?></label>
-                    <input type="text" id="cree_new_last_name" required style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
-                </div>
+        <!-- MAIN PANEL: CLIENT PROFILE WORKSPACE -->
+        <div style="padding: 24px;" id="cree-profile-main-panel">
+            <div id="cree-profile-placeholder" style="text-align: center; padding: 80px 20px; color: #6b7280;">
+                <div style="font-size: 48px; margin-bottom: 16px;">👤</div>
+                <h3 style="margin: 0 0 8px 0; color: #374151;">Select a Client Profile</h3>
+                <p style="margin: 0;">Click on any client name from the list on the left to manage their forms, notes, and session schedule.</p>
             </div>
-            
-            <div style="margin-bottom: 20px;">
-                <label for="cree_new_email" style="font-weight: 600; display: block; margin-bottom: 5px;"><?php esc_html_e( 'Email Address:', 'cree-consejeria' ); ?></label>
-                <input type="email" id="cree_new_email" required style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
-            </div>
-            
-            <button type="submit" class="button button-primary" style="background: #2563eb; border-color: #2563eb; color: #fff; padding: 8px 18px; font-weight: bold; cursor: pointer;"><?php esc_html_e( 'Save & Register Client', 'cree-consejeria' ); ?></button>
-            
-            <p id="cree-add-client-feedback" style="display:none; margin-top: 12px; font-size: 14px; font-weight: bold;"></p>
-        </form>
-    </div>
+            <div id="cree-profile-active-content" style="display: none;"></div>
+        </div>
 
-    <!-- TAB 4: APPOINTMENTS -->
-    <div id="cree-tab-appointments" class="cree-tab-content" style="display: none; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;">
-        <h3 style="margin-top: 0;"><?php esc_html_e( 'Schedule New Appointment', 'cree-consejeria' ); ?></h3>
-        <form id="cree-add-appointment-form" style="max-width: 600px; margin-bottom: 30px;">
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 5px;"><?php esc_html_e( 'Select Client:', 'cree-consejeria' ); ?></label>
-                <select id="appointment_client_id" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;" required>
-                    <option value="">-- <?php esc_html_e( 'Select Client', 'cree-consejeria' ); ?> --</option>
-                    <?php if ( ! empty( $clients ) ) : ?>
-                        <?php foreach ( $clients as $client ) : ?>
-                            <option value="<?php echo intval( $client->ID ); ?>">
-                                <?php echo esc_html( $client->display_name . ' (' . $client->user_email . ')' ); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </select>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 5px;"><?php esc_html_e( 'Appointment Date & Time:', 'cree-consejeria' ); ?></label>
-                <input type="datetime-local" id="appointment_date" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;" required>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 5px;"><?php esc_html_e( 'Session Notes / Type:', 'cree-consejeria' ); ?></label>
-                <textarea id="appointment_notes" rows="2" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;" placeholder="<?php esc_attr_e( 'Initial Consultation, Follow-up...', 'cree-consejeria' ); ?>"></textarea>
-            </div>
-            <button type="submit" class="button button-primary" style="background: #2563eb; border-color: #2563eb; color: #fff; padding: 8px 16px; font-weight: bold; cursor: pointer;"><?php esc_html_e( 'Schedule Session', 'cree-consejeria' ); ?></button>
-        </form>
-        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 25px 0;">
-        <h3><?php esc_html_e( 'Upcoming & Past Sessions', 'cree-consejeria' ); ?></h3>
-        <div id="cree-appointments-list"><p><em><?php esc_html_e( 'Loading appointments...', 'cree-consejeria' ); ?></em></p></div>
-    </div>
-
-    <!-- TAB 5: TREATMENT GOALS -->
-    <div id="cree-tab-goals" class="cree-tab-content" style="display: none; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px;">
-        <h3 style="margin-top: 0;"><?php esc_html_e( 'Add Treatment Plan Goal', 'cree-consejeria' ); ?></h3>
-        <form id="cree-add-goal-form" style="max-width: 600px; margin-bottom: 30px;">
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 5px;"><?php esc_html_e( 'Select Client:', 'cree-consejeria' ); ?></label>
-                <select id="goal_client_id" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;" required>
-                    <option value="">-- <?php esc_html_e( 'Select Client', 'cree-consejeria' ); ?> --</option>
-                    <?php if ( ! empty( $clients ) ) : ?>
-                        <?php foreach ( $clients as $client ) : ?>
-                            <option value="<?php echo intval( $client->ID ); ?>">
-                                <?php echo esc_html( $client->display_name . ' (' . $client->user_email . ')' ); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </select>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 5px;"><?php esc_html_e( 'Goal Title:', 'cree-consejeria' ); ?></label>
-                <input type="text" id="goal_title" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;" placeholder="<?php esc_attr_e( 'e.g. Anxiety Reduction Techniques', 'cree-consejeria' ); ?>" required>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; font-weight: 600; margin-bottom: 5px;"><?php esc_html_e( 'Description & Interventions:', 'cree-consejeria' ); ?></label>
-                <textarea id="goal_description" rows="3" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;" placeholder="<?php esc_attr_e( 'Outline specific clinical targets...', 'cree-consejeria' ); ?>"></textarea>
-            </div>
-            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                <div style="flex: 1;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 5px;"><?php esc_html_e( 'Target Completion Date:', 'cree-consejeria' ); ?></label>
-                    <input type="date" id="goal_target_date" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
-                </div>
-                <div style="flex: 1;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 5px;"><?php esc_html_e( 'Progress (%):', 'cree-consejeria' ); ?></label>
-                    <input type="number" id="goal_progress" min="0" max="100" value="0" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px;">
-                </div>
-            </div>
-            <button type="submit" class="button button-primary" style="background: #2563eb; border-color: #2563eb; color: #fff; padding: 8px 16px; font-weight: bold; cursor: pointer;"><?php esc_html_e( 'Save Goal', 'cree-consejeria' ); ?></button>
-        </form>
-        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 25px 0;">
-        <h3><?php esc_html_e( 'Active Client Goals', 'cree-consejeria' ); ?></h3>
-        <div id="cree-goals-list"><p><em><?php esc_html_e( 'Select a client above to view goals...', 'cree-consejeria' ); ?></em></p></div>
     </div>
 </div>
 
+<!-- Modal for viewing form details -->
+<div id="cree-form-view-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:#fff; width:90%; max-width:650px; max-height:85vh; border-radius:8px; padding:25px; overflow-y:auto; position:relative;">
+        <button type="button" onclick="jQuery('#cree-form-view-modal').hide()" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
+        <h3 style="margin-top:0; color:#1e3a8a;">Decrypted Form Record</h3>
+        <div id="cree-form-modal-content"><p>Loading details...</p></div>
+    </div>
+</div>
+
+<style>
+.cree-client-card:hover { border-color: #2563eb !important; background: #eff6ff !important; }
+.cree-client-card.active-client { border-color: #2563eb !important; background: #dbeafe !important; border-left: 4px solid #2563eb !important; }
+.cree-prof-tab { padding: 8px 16px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: bold; color: #4b5563; cursor: pointer; }
+.cree-prof-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+</style>
+
 <script>
-function creeSwitchTab(evt, tabId) {
-    evt.preventDefault();
-    document.querySelectorAll('.cree-tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-        btn.style.color = '#4b5563';
-        btn.style.borderBottomColor = 'transparent';
-    });
-    document.querySelectorAll('.cree-tab-content').forEach(tab => tab.style.display = 'none');
-    
-    evt.currentTarget.classList.add('active');
-    evt.currentTarget.style.color = '#2563eb';
-    evt.currentTarget.style.borderBottomColor = '#2563eb';
-    document.getElementById(tabId).style.display = 'block';
+var activeClientId = 0;
 
-    if (tabId === 'cree-tab-appointments') {
-        creeLoadAppointments();
-    }
-}
-
-function creeLoadAppointments() {
-    jQuery.post(CREE_NOTE_FORM.ajax_url, {
-        action: 'cree_get_user_appointments',
-        security: CREE_NOTE_FORM.nonce
-    }, function(res) {
-        if(res.success) {
-            jQuery('#cree-appointments-list').html(res.data.html);
-        }
-    });
-}
-
-function creeUpdateAppointmentStatus(appointmentId, newStatus) {
-    if (!confirm('Are you sure you want to mark this appointment as ' + newStatus + '?')) {
+function creeUnassignForm(assignedId) {
+    if (!confirm('Are you sure you want to unassign this pending form?')) {
         return;
     }
 
     jQuery.post(CREE_NOTE_FORM.ajax_url, {
-        action: 'cree_update_appointment_status',
+        action: 'cree_unassign_form',
         security: CREE_NOTE_FORM.nonce,
-        appointment_id: appointmentId,
-        status: newStatus
+        assigned_id: assignedId
     }, function(res) {
-        console.log('Status Update Response:', res);
         if (res && res.success) {
-            // Force re-fetch the appointments table
-            creeLoadAppointments();
+            // Instantly refresh workspace view without full page reload
+            creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
         } else {
-            alert('Error updating status: ' + (res.data ? (res.data.message || res.data) : 'Unknown error'));
+            alert('Error: ' + (res.data ? (res.data.message || res.data) : 'Could not unassign form.'));
         }
-    }).fail(function(xhr, status, error) {
-        console.error('AJAX Error:', error, xhr.responseText);
-        alert('Server Error: ' + error);
     });
 }
 
-function creeLoadGoals(clientId) {
-    if (!clientId) {
-        jQuery('#cree-goals-list').html('<p><em>Select a client above to view goals...</em></p>');
-        return;
-    }
-    
-    jQuery('#cree-goals-list').html('<p>Loading treatment goals...</p>');
+function creeSelectClient(clientId, elem) {
+    activeClientId = clientId;
+    jQuery('.cree-client-card').removeClass('active-client');
+    jQuery(elem).addClass('active-client');
+
+    jQuery('#cree-profile-placeholder').hide();
+    jQuery('#cree-profile-active-content').show().html('<p>Loading client workspace...</p>');
 
     jQuery.post(CREE_NOTE_FORM.ajax_url, {
-        action: 'cree_get_client_treatment_goals',
+        action: 'cree_get_client_profile_data',
         security: CREE_NOTE_FORM.nonce,
         client_id: clientId
     }, function(res) {
-        if (res.success) {
-            jQuery('#cree-goals-list').html(res.data.html);
+        if (res && res.success) {
+            jQuery('#cree-profile-active-content').html(res.data.html);
+            // CRITICAL: Re-bind all tab switching, notes editing, and form submission events for this client view
+            creeBindProfileEvents();
         } else {
-            jQuery('#cree-goals-list').html('<p style="color:red;">' + (res.data.message || res.data) + '</p>');
+            jQuery('#cree-profile-active-content').html('<p style="color:red;">' + (res.data ? (res.data.message || res.data) : 'Failed to retrieve profile data.') + '</p>');
+        }
+    }).fail(function(xhr, status, error) {
+        jQuery('#cree-profile-active-content').html('<p style="color:red;">Server error: ' + error + '</p>');
+    });
+}
+
+function creeSwitchProfileTab(evt, tabId) {
+    evt.preventDefault();
+    jQuery('.cree-prof-tab').removeClass('active');
+    jQuery(evt.currentTarget).addClass('active');
+    jQuery('.cree-prof-content').hide();
+    jQuery('#' + tabId).show();
+}
+
+// function creeBindProfileEvents() {
+//     // Submit Assign Form
+//     jQuery('#cree-profile-assign-form').off('submit').on('submit', function(e) {
+//         e.preventDefault();
+//         jQuery.post(CREE_NOTE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_assign_form_to_client&security=' + CREE_NOTE_FORM.nonce, function(res) {
+//             alert(res.data.message || res.data);
+//             if (res.success) creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
+//         });
+//     });
+
+//     // Submit Note
+//     jQuery('#cree-profile-add-note').off('submit').on('submit', function(e) {
+//         e.preventDefault();
+//         jQuery.post(CREE_NOTE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_save_session_note&security=' + CREE_NOTE_FORM.nonce, function(res) {
+//             alert(res.data.message || res.data);
+//             if (res.success) creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
+//         });
+//     });
+
+//     // Submit Appointment
+//     jQuery('#cree-profile-add-appt').off('submit').on('submit', function(e) {
+//         e.preventDefault();
+//         jQuery.post(CREE_NOTE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_book_appointment&security=' + CREE_NOTE_FORM.nonce, function(res) {
+//             alert(res.data.message || res.data);
+//             if (res.success) creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
+//         });
+//     });
+// }
+
+function creeBindProfileEvents() {
+    // 1. Submit Assign Form
+    jQuery('#cree-profile-assign-form').off('submit').on('submit', function(e) {
+        e.preventDefault();
+        var $btn = jQuery(this).find('button[type="submit"]');
+        $btn.prop('disabled', true).text('Assigning...');
+
+        var formData = jQuery(this).serialize() + '&action=cree_assign_form_to_client&security=' + CREE_NOTE_FORM.nonce;
+
+        jQuery.post(CREE_NOTE_FORM.ajax_url, formData, function(res) {
+            $btn.prop('disabled', false).text('Assign to Client');
+            if (res && res.success) {
+                alert(res.data.message || 'Form successfully assigned!');
+                if (typeof creeSelectClient === 'function' && typeof activeClientId !== 'undefined') {
+                    creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
+                } else {
+                    location.reload();
+                }
+            } else {
+                alert('Error assigning form: ' + (res.data ? (res.data.message || res.data) : 'Unknown error'));
+            }
+        });
+    });
+
+    // 2. Submit Session Note (Dynamic Append without page refresh)
+    jQuery('#cree-profile-add-note').off('submit').on('submit', function(e) {
+        e.preventDefault();
+        var $form = jQuery(this);
+        var $btn  = $form.find('button[type="submit"]');
+        
+        $btn.prop('disabled', true).text('Saving...');
+
+        jQuery.post(CREE_NOTE_FORM.ajax_url, $form.serialize() + '&action=cree_save_session_note&security=' + CREE_NOTE_FORM.nonce, function(res) {
+            $btn.prop('disabled', false).text('💾 Save Encrypted Note');
+
+            if (res && res.success) {
+                // Remove 'No session notes recorded' fallback message if present
+                jQuery('#cree-no-notes-msg').remove();
+
+                // Prepend new note card dynamically to the top of the history list
+                jQuery('#cree-session-notes-history-container').prepend(res.data.note_html);
+
+                // Clear the textarea for the next entry
+                $form.find('textarea[name="note_text"]').val('');
+            } else {
+                alert('Error: ' + (res.data ? (res.data.message || res.data) : 'Could not save note.'));
+            }
+        }).fail(function(xhr, status, error) {
+            $btn.prop('disabled', false).text('💾 Save Encrypted Note');
+            alert('Server error: ' + error);
+        });
+    });
+
+    // 3. Submit Appointment
+    jQuery('#cree-profile-add-appt').off('submit').on('submit', function(e) {
+        e.preventDefault();
+        jQuery.post(CREE_NOTE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_book_appointment&security=' + CREE_NOTE_FORM.nonce, function(res) {
+            alert(res.data.message || res.data);
+            if (res.success && typeof creeSelectClient === 'function' && typeof activeClientId !== 'undefined') {
+                creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
+            }
+        });
+    });
+}
+
+function creeViewClientFormDetails(formId) {
+    jQuery('#cree-form-modal-content').html('<p>Loading form details...</p>');
+    jQuery('#cree-form-view-modal').css('display', 'flex');
+
+    jQuery.post(CREE_NOTE_FORM.ajax_url, {
+        action: 'cree_get_single_form_details',
+        security: CREE_NOTE_FORM.nonce,
+        form_id: formId
+    }, function(res) {
+        if (res.success) {
+            jQuery('#cree-form-modal-content').html(res.data.html);
+        } else {
+            jQuery('#cree-form-modal-content').html('<p style="color:red;">' + (res.data.message || res.data) + '</p>');
         }
     });
 }
 
-jQuery(document).ready(function($) {
-    // Handle Client Creation Form Submission
-    $('#cree-add-client-form').on('submit', function(e) {
-        e.preventDefault();
-        var $feedback = $('#cree-add-client-feedback');
-        $feedback.show().css('color', '#1d2327').text('Creating client account...');
-
-        $.post(CREE_NOTE_FORM.ajax_url, {
-            action: 'cree_add_new_client',
-            security: CREE_NOTE_FORM.nonce,
-            first_name: $('#cree_new_first_name').val(),
-            last_name: $('#cree_new_last_name').val(),
-            email: $('#cree_new_email').val()
-        }, function(response) {
-            if (response.success) {
-                $feedback.css('color', 'green').text(response.data.message);
-                $('#cree-add-client-form')[0].reset();
-                
-                var newOption = $('<option>', {
-                    value: response.data.user_id,
-                    text: response.data.display_name + ' (' + response.data.email + ')'
-                });
-                $('#cree_note_client_id, #appointment_client_id, #goal_client_id').append(newOption);
-            } else {
-                $feedback.css('color', '#d63638').text(response.data);
-            }
-        });
-    });
-
-    // Load Client Notes History when dropdown changes
-    $('#cree_note_client_id').on('change', function() {
-        var clientId = $(this).val();
-        if (!clientId) {
-            $('#cree-client-notes-history').html('<p><em>Select a client above to view their history.</em></p>');
-            return;
-        }
-        $('#cree-client-notes-history').html('<p>Loading notes...</p>');
-        $.post(CREE_NOTE_FORM.ajax_url, {
-            action: 'cree_load_client_notes',
-            security: CREE_NOTE_FORM.nonce,
-            client_id: clientId
-        }, function(response) {
-            if (response.success) {
-                $('#cree-client-notes-history').html(response.data.html);
-            } else {
-                $('#cree-client-notes-history').html('<p style="color:red;">' + response.data + '</p>');
-            }
-        });
-    });
-
-    // Save Session Note
-    $('#cree-session-note-form').on('submit', function(e) {
-        e.preventDefault();
-        var clientId = $('#cree_note_client_id').val();
-        var $response = $('#cree-note-response');
-        
-        $.post(CREE_NOTE_FORM.ajax_url, {
-            action: 'cree_save_session_note',
-            security: CREE_NOTE_FORM.nonce,
-            client_id: clientId,
-            session_date: $('#cree_session_date').val(),
-            note_text: $('#cree_note_text').val()
-        }, function(response) {
-            $response.css('color', response.success ? 'green' : 'red').text(response.data.message || response.data);
-            if (response.success) {
-                $('#cree_note_text').val('');
-                $('#cree_note_client_id').trigger('change');
-            }
-        });
-    });
-
-    // Handle Appointment Submit
-    $('#cree-add-appointment-form').on('submit', function(e) {
-        e.preventDefault();
-        $.post(CREE_NOTE_FORM.ajax_url, {
-            action: 'cree_book_appointment',
-            security: CREE_NOTE_FORM.nonce,
-            client_id: $('#appointment_client_id').val(),
-            appointment_date: $('#appointment_date').val(),
-            notes: $('#appointment_notes').val()
-        }, function(res) {
-            alert(res.data.message);
-            if(res.success) {
-                $('#cree-add-appointment-form')[0].reset();
-                creeLoadAppointments();
-            }
-        });
-    });
-
-    // Handle Goal Submit
-    $('#cree-add-goal-form').on('submit', function(e) {
-        e.preventDefault();
-        $.post(CREE_NOTE_FORM.ajax_url, {
-            action: 'cree_save_treatment_goal',
-            security: CREE_NOTE_FORM.nonce,
-            client_id: $('#goal_client_id').val(),
-            goal_title: $('#goal_title').val(),
-            goal_description: $('#goal_description').val(),
-            target_date: $('#goal_target_date').val(),
-            progress_percentage: $('#goal_progress').val()
-        }, function(res) {
-            alert(res.data.message);
-            if(res.success) {
-                $('#cree-add-goal-form')[0].reset();
-                creeLoadGoals($('#goal_client_id').val());
-            }
-        });
-    });
-
-    // Load goals when changing client selection dropdown
-    $('#goal_client_id').on('change', function() {
-        creeLoadGoals($(this).val());
-    });
-});
-
-// Trigger PDF Window Export
 function creeExportPDF(formId) {
     jQuery.post(CREE_NOTE_FORM.ajax_url, {
         action: 'cree_export_intake_pdf_html',
         security: CREE_NOTE_FORM.nonce,
         form_id: formId
     }, function(res) {
-        if(res.success) {
+        if (res.success) {
             var win = window.open('', '_blank');
             win.document.write(res.data.html);
             win.document.close();
@@ -405,4 +251,88 @@ function creeExportPDF(formId) {
         }
     });
 }
+
+function creeUpdateAppointmentStatus(appointmentId, newStatus) {
+    if (!confirm('Are you sure you want to change appointment status to ' + newStatus + '?')) return;
+
+    jQuery.post(CREE_NOTE_FORM.ajax_url, {
+        action: 'cree_update_appointment_status',
+        security: CREE_NOTE_FORM.nonce,
+        appointment_id: appointmentId,
+        status: newStatus
+    }, function(res) {
+        if (res.success) {
+            creeSelectClient(activeClientId, jQuery('.cree-client-card.active-client'));
+        } else {
+            alert(res.data.message || res.data);
+        }
+    });
+}
+
+// Client Directory Search Filter
+jQuery(document).ready(function($) {
+    $('#cree-client-search').on('keyup', function() {
+        var term = $(this).val().toLowerCase();
+        $('.cree-client-card').each(function() {
+            var text = $(this).text().toLowerCase();
+            $(this).toggle(text.indexOf(term) > -1);
+        });
+    });
+});
+
+// Toggle to Edit Mode
+$(document).on('click', '.cree-edit-note-btn', function(e) {
+    e.preventDefault();
+    var $card = $(this).closest('.cree-note-card');
+    $card.find('.cree-note-text-view').hide();
+    $card.find('.cree-edit-note-form').show();
+    $(this).hide(); // Hide Edit button while editing
+});
+
+// Cancel Edit Mode
+$(document).on('click', '.cree-cancel-note-btn', function(e) {
+    e.preventDefault();
+    var $card = $(this).closest('.cree-note-card');
+    $card.find('.cree-note-edit-form').hide();
+    $card.find('.cree-note-text-view').show();
+    $card.find('.cree-edit-note-btn').show();
+});
+
+// Save Edited Note via AJAX
+$(document).on('click', '.cree-save-note-btn', function(e) {
+    e.preventDefault();
+    var $card   = $(this).closest('.cree-note-card');
+    var noteId  = $card.data('note-id');
+    var newText = $card.find('.cree-note-edit-textarea').val();
+    var $btn    = $(this);
+
+    if (!newText.trim()) {
+        alert('Note cannot be empty.');
+        return;
+    }
+
+    $btn.prop('disabled', true).text('Saving...');
+
+    $.post(CREE_NOTE_FORM.ajax_url, {
+        action: 'cree_update_session_note',
+        security: CREE_NOTE_FORM.nonce,
+        note_id: noteId,
+        note_text: newText
+    }, function(res) {
+        $btn.prop('disabled', false).text('💾 Save');
+
+        if (res && res.success) {
+            // Update static view text and switch back to view mode
+            $card.find('.cree-note-text-view').text(newText).show();
+            $card.find('.cree-note-edit-form').hide();
+            $card.find('.cree-edit-note-btn').show();
+        } else {
+            alert('Error updating note: ' + (res.data ? (res.data.message || res.data) : 'Unknown error'));
+        }
+    }).fail(function(xhr, status, error) {
+        $btn.prop('disabled', false).text('💾 Save');
+        alert('Server error: ' + error);
+    });
+});
+
 </script>

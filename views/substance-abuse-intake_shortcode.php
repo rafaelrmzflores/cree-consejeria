@@ -3,10 +3,15 @@
  * View Template: Substance Abuse Intake Form
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; } 
+
+$form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty( $attributes['type'] ) ) 
+    ? $attributes['type'] 
+    : 'substance_abuse_intake';
+
 ?>
 <div class="cree-form-container">
     <form id="substanceAbuseIntakeForm">
-        <input type="hidden" name="form_type" value="<?php echo esc_attr( $attributes['type'] ); ?>">
+        <input type="hidden" name="form_type" value="<?php echo esc_attr( $form_type_value ); ?>">
 
         <h1>Substance Abuse Intake Form</h1>
 

@@ -3,11 +3,16 @@
  * View Template: Psychosocial Evaluation Form
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; } 
+
+$form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty( $attributes['type'] ) ) 
+    ? $attributes['type'] 
+    : 'psychosocial_evaluation';
+    
 ?>
 <div class="cree-form-container">
     <form id="clientRegistrationForm">
 
-        <input type="hidden" name="form_type" value="<?php echo esc_attr( $attributes['type'] ); ?>">
+        <input type="hidden" name="form_type" value="<?php echo esc_attr( $form_type_value ); ?>">
 
          <h1>Psychosocial Evaluation Form</h1>
 

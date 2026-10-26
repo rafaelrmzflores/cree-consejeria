@@ -4,10 +4,15 @@
  * Language: Spanish
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; } 
+
+$form_type_value = ( isset( $attributes ) && is_array( $attributes ) && ! empty( $attributes['type'] ) ) 
+    ? $attributes['type'] 
+    : 'politicas_de_la_practica';
+    
 ?>
 <div class="cree-form-container">
     <form id="practicePoliciesForm">
-        <input type="hidden" name="form_type" value="<?php echo esc_attr( $attributes['type'] ); ?>">
+        <input type="hidden" name="form_type" value="<?php echo esc_attr( $form_type_value ); ?>">
         <input type="hidden" name="user_ip" value="<?php echo esc_attr( ! empty( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : '' ); ?>">
 
         <h1>Políticas de la Práctica</h1>

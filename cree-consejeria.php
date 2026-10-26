@@ -61,18 +61,35 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             add_action( 'wp_ajax_cree_book_appointment', array( $this, 'ajax_book_appointment' ) );
             add_action( 'wp_ajax_nopriv_cree_book_appointment', array( $this, 'ajax_book_appointment' ) );  
+            
             add_action( 'wp_ajax_cree_get_user_appointments', array( $this, 'ajax_get_user_appointments' ) );
             add_action( 'wp_ajax_nopriv_cree_get_user_appointments', array( $this, 'ajax_get_user_appointments' ) );
+            
             add_action( 'wp_ajax_cree_update_appointment_status', array( $this, 'ajax_update_appointment_status' ) );
 
             add_action( 'wp_ajax_cree_save_treatment_goal', array( $this, 'ajax_save_treatment_goal' ) );
+            
             add_action( 'wp_ajax_cree_get_client_treatment_goals', array( $this, 'ajax_get_client_treatment_goals' ) );
             add_action( 'wp_ajax_nopriv_cree_get_client_treatment_goals', array( $this, 'ajax_get_client_treatment_goals' ) );
+            
             add_action( 'wp_ajax_cree_export_intake_pdf_html', array( $this, 'ajax_export_intake_pdf_html' ) );
             add_action( 'wp_ajax_nopriv_cree_export_intake_pdf_html', array( $this, 'ajax_export_intake_pdf_html' ) );
 
             add_action( 'wp_ajax_cree_get_single_form_details', array( $this, 'ajax_get_single_form_details' ) );
             add_action( 'wp_ajax_nopriv_cree_get_single_form_details', array( $this, 'ajax_get_single_form_details' ) );
+
+            add_action( 'wp_ajax_cree_assign_form_to_client', array( $this, 'ajax_assign_form_to_client' ) );
+            add_action( 'wp_ajax_cree_get_client_profile_data', array( $this, 'ajax_get_client_profile_data' ) );
+
+            add_action( 'wp_ajax_cree_unassign_form', array( $this, 'ajax_unassign_form' ) );
+
+            add_action( 'wp_ajax_cree_get_client_form_template', array( $this, 'ajax_get_client_form_template' ) );
+
+            // Register AJAX hooks for Online Therapy Consent form submission
+            add_action( 'wp_ajax_cree_submit_consentimiento_terapia_en_linea', array( $this, 'ajax_submit_consentimiento_terapia_en_linea' ) );
+            add_action( 'wp_ajax_nopriv_cree_submit_consentimiento_terapia_en_linea', array( $this, 'ajax_submit_consentimiento_terapia_en_linea' ) );
+
+            add_action( 'wp_ajax_cree_update_session_note', array( $this, 'ajax_update_session_note' ) );
 
             add_action( 'admin_init', array( $this, 'maybe_create_tables' ) );
         }
@@ -359,7 +376,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             wp_die();
         }
 
-        private function send_intake_notification_email( $form_title, $payload ) {
+        private function send_intake_notification_email_deprecated( $form_title, $payload ) {
             $to          = get_option( 'admin_email' );
             $client_name = ! empty( $payload['client_name'] ) ? sanitize_text_field( $payload['client_name'] ) : __( 'Cliente no especificado', 'cree-consejeria' );
             $client_email= ! empty( $payload['email'] ) ? sanitize_email( $payload['email'] ) : 'N/A';
@@ -381,20 +398,54 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             wp_mail( $to, $subject, $message, $headers );
         }
 
+        private function send_intake_notification_email( $form_title, $payload ) {
+            $to          = get_option( 'admin_email' );
+            $client_name = ! empty( $payload['client_name'] ) ? sanitize_text_field( $payload['client_name'] ) : __( 'Cliente no especificado', 'cree-consejeria' );
+            $client_email= ! empty( $payload['email'] ) ? sanitize_email( $payload['email'] ) : 'N/A';
+
+            $subject = sprintf( '[CREE Consejería] Nuevo Formulario Recibido: %s', $form_title );
+
+            $message  = "Hola,\n\n";
+            $message .= "Se ha completado y cifrado un nuevo formulario de intake en el portal.\n\n";
+            $message .= "--------------------------------------------------\n";
+            $message .= "Formulario: " . $form_title . "\n";
+            $message .= "Cliente: " . $client_name . "\n";
+            $message .= "Correo: " . $client_email . "\n";
+            $message .= "Fecha: " . wp_date( 'F j, Y, g:i a' ) . "\n";
+            $message .= "--------------------------------------------------\n\n";
+            $message .= "Consulte los detalles cifrados en el Portal del Terapeuta: " . home_url( '/cree-therapist-portal/' ) . "\n\n";
+            $message .= "Atentamente,\nSistema CREE Consejería";
+
+            // Get site domain for a proper sender address
+            $site_name = wp_parse_url( home_url(), PHP_URL_HOST );
+            $from_email = 'no-reply@' . $site_name;
+
+            $headers = array(
+                'Content-Type: text/plain; charset=UTF-8',
+                'From: CREE Consejería <' . $from_email . '>'
+            );
+
+            wp_mail( $to, $subject, $message, $headers );
+        }
+
         public function ajax_save_session_note() {
             check_ajax_referer( 'cree_secure_note_nonce', 'security' );
             if ( ! current_user_can( 'edit_posts' ) ) {
-                wp_send_json_error( 'Unauthorized access.' );
+                wp_send_json_error( array( 'message' => 'Unauthorized access.' ) );
             }
 
             global $wpdb;
             $notes_table_name = $wpdb->prefix . 'cree_consejeria_session_notes';
             $encryption_key   = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
 
-            $client_id    = intval( $_POST['client_id'] );
+            $client_id    = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
             $therapist_id = get_current_user_id();
-            $session_date = sanitize_text_field( $_POST['session_date'] );
-            $note_text    = sanitize_textarea_field( $_POST['note_text'] );
+            $session_date = isset( $_POST['session_date'] ) ? sanitize_text_field( $_POST['session_date'] ) : '';
+            $note_text    = isset( $_POST['note_text'] ) ? sanitize_textarea_field( $_POST['note_text'] ) : '';
+
+            if ( ! $client_id || empty( $session_date ) || empty( $note_text ) ) {
+                wp_send_json_error( array( 'message' => 'Please fill out all required note fields.' ) );
+            }
 
             $inserted = $wpdb->query( $wpdb->prepare(
                 "INSERT INTO $notes_table_name (client_id, therapist_id, session_date, note_encrypted) 
@@ -407,9 +458,23 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             ) );
 
             if ( $inserted ) {
-                wp_send_json_success( array( 'message' => '✅ Session note saved successfully!' ) );
+                // Format the newly created note card HTML for instant DOM injection
+                $formatted_date = wp_date( 'F j, Y', strtotime( $session_date ) );
+                ob_start();
+                ?>
+                <div style="background:#fff; border:1px solid #e5e7eb; border-left:4px solid #10b981; padding:12px; margin-bottom:10px; border-radius:4px;">
+                    <div style="font-size:12px; font-weight:bold; color:#374151; margin-bottom:6px;">📅 Session Date: <?php echo esc_html( $formatted_date ); ?></div>
+                    <div style="font-size:13.5px; color:#1f2937; white-space:pre-wrap;"><?php echo esc_html( $note_text ); ?></div>
+                </div>
+                <?php
+                $note_html = ob_get_clean();
+
+                wp_send_json_success( array(
+                    'message'   => '✅ Session note saved successfully!',
+                    'note_html' => $note_html
+                ) );
             } else {
-                wp_send_json_error( 'Database error: ' . $wpdb->last_error );
+                wp_send_json_error( array( 'message' => 'Database error: ' . $wpdb->last_error ) );
             }
         }
         
@@ -1169,6 +1234,591 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             <?php
 
             wp_send_json_success( array( 'html' => ob_get_clean() ) );
+        }
+        
+        /**
+         * AJAX Handler: Assign a Form to a Client
+         */
+        // public function ajax_assign_form_to_client_deprecated() {
+        //     if ( isset( $_POST['security'] ) ) {
+        //         check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+        //     } elseif ( isset( $_POST['nonce'] ) ) {
+        //         check_ajax_referer( 'cree_secure_form_submission', 'nonce' );
+        //     } else {
+        //         wp_send_json_error( array( 'message' => __( 'Security check failed.', 'cree-consejeria' ) ) );
+        //     }
+
+        //     if ( ! is_user_logged_in() || ! current_user_can( 'edit_posts' ) ) {
+        //         wp_send_json_error( array( 'message' => __( 'Unauthorized access.', 'cree-consejeria' ) ) );
+        //     }
+
+        //     $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+        //     $form_type = isset( $_POST['form_type'] ) ? sanitize_text_field( $_POST['form_type'] ) : '';
+
+        //     if ( ! $client_id || empty( $form_type ) ) {
+        //         wp_send_json_error( array( 'message' => __( 'Please select a valid client and form.', 'cree-consejeria' ) ) );
+        //     }
+
+        //     global $wpdb;
+        //     $table_name = $wpdb->prefix . 'cree_consejeria_assigned_forms';
+
+        //     // Auto-create assigned forms tracking table if missing
+        //     $wpdb->query( "CREATE TABLE IF NOT EXISTS {$table_name} (
+        //         id BIGINT(20) NOT NULL AUTO_AUTO_INCREMENT,
+        //         client_id BIGINT(20) NOT NULL,
+        //         therapist_id BIGINT(20) NOT NULL,
+        //         form_type VARCHAR(100) NOT NULL,
+        //         status VARCHAR(50) DEFAULT 'assigned',
+        //         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        //         PRIMARY KEY (id)
+        //     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" );
+
+        //     $inserted = $wpdb->insert(
+        //         $table_name,
+        //         array(
+        //             'client_id'    => $client_id,
+        //             'therapist_id' => get_current_user_id(),
+        //             'form_type'    => $form_type,
+        //             'status'       => 'assigned',
+        //             'created_at'   => current_time( 'mysql' ),
+        //         ),
+        //         array( '%d', '%d', '%s', '%s', '%s' )
+        //     );
+
+        //     if ( $inserted ) {
+        //         wp_send_json_success( array( 'message' => __( 'Form assigned to client successfully.', 'cree-consejeria' ) ) );
+        //     } else {
+        //         wp_send_json_error( array( 'message' => __( 'Failed to assign form.', 'cree-consejeria' ) ) );
+        //     }
+        // }
+
+        /**
+         * AJAX Handler: Assign a Form to a Client
+         */
+        public function ajax_assign_form_to_client() {
+            if ( isset( $_POST['security'] ) ) {
+                check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            } elseif ( isset( $_POST['nonce'] ) ) {
+                check_ajax_referer( 'cree_secure_form_submission', 'nonce' );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Security check failed.', 'cree-consejeria' ) ) );
+            }
+
+            if ( ! is_user_logged_in() || ! current_user_can( 'edit_posts' ) ) {
+                wp_send_json_error( array( 'message' => __( 'Unauthorized access.', 'cree-consejeria' ) ) );
+            }
+
+            $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+            $form_type = isset( $_POST['form_type'] ) ? sanitize_text_field( $_POST['form_type'] ) : '';
+
+            if ( ! $client_id || empty( $form_type ) ) {
+                wp_send_json_error( array( 'message' => __( 'Please select a valid client and form.', 'cree-consejeria' ) ) );
+            }
+
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_consejeria_assigned_forms';
+
+            // Auto-create assigned forms tracking table if missing
+            $wpdb->query( "CREATE TABLE IF NOT EXISTS {$table_name} (
+                id BIGINT(20) NOT NULL AUTO_INCREMENT,
+                client_id BIGINT(20) NOT NULL,
+                therapist_id BIGINT(20) NOT NULL,
+                form_type VARCHAR(100) NOT NULL,
+                status VARCHAR(50) DEFAULT 'assigned',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" );
+
+            $inserted = $wpdb->insert(
+                $table_name,
+                array(
+                    'client_id'    => $client_id,
+                    'therapist_id' => get_current_user_id(),
+                    'form_type'    => $form_type,
+                    'status'       => 'assigned',
+                    'created_at'   => current_time( 'mysql' ),
+                ),
+                array( '%d', '%d', '%s', '%s', '%s' )
+            );
+
+            if ( $inserted ) {
+                wp_send_json_success( array( 'message' => __( 'Form assigned to client successfully.', 'cree-consejeria' ) ) );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Failed to assign form to database.', 'cree-consejeria' ) ) );
+            }
+        }
+
+        /**
+         * AJAX Handler: Fetch Client Profile Tabs HTML
+         */
+        public function ajax_get_client_profile_data() {
+            // 1. Flexible Nonce Check
+            if ( isset( $_POST['security'] ) ) {
+                check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            } elseif ( isset( $_POST['nonce'] ) ) {
+                check_ajax_referer( 'cree_secure_form_submission', 'nonce' );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Security check failed.', 'cree-consejeria' ) ) );
+            }
+
+            if ( ! is_user_logged_in() || ! current_user_can( 'edit_posts' ) ) {
+                wp_send_json_error( array( 'message' => __( 'Unauthorized access.', 'cree-consejeria' ) ) );
+            }
+
+            $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+            if ( ! $client_id ) {
+                wp_send_json_error( array( 'message' => __( 'Client ID not provided.', 'cree-consejeria' ) ) );
+            }
+
+            $user_info = get_userdata( $client_id );
+            if ( ! $user_info ) {
+                wp_send_json_error( array( 'message' => __( 'Client user profile not found.', 'cree-consejeria' ) ) );
+            }
+
+            global $wpdb;
+            $encryption_key = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+
+            // 1. Fetch Assigned Forms for this client
+            $assigned_table = $wpdb->prefix . 'cree_consejeria_assigned_forms';
+            $assigned_forms = $wpdb->get_results( $wpdb->prepare(
+                "SELECT * FROM {$assigned_table} WHERE client_id = %d ORDER BY created_at DESC",
+                $client_id
+            ) );
+
+            // 2. Fetch Completed Intake Forms
+            $forms_table     = $wpdb->prefix . 'cree_consejeria_client_forms_master';
+            $completed_forms = $wpdb->get_results( $wpdb->prepare(
+                "SELECT id, form_type, created_at, status FROM {$forms_table} WHERE wp_id = %d ORDER BY created_at DESC",
+                $client_id
+            ) );
+
+            // Create a quick lookup map of completed form types
+            $completed_map = array();
+            foreach ( $completed_forms as $cf ) {
+                $completed_map[ $cf->form_type ] = $cf;
+            }
+
+            // 3. Fetch Session Notes for the specific client
+            $notes_table = $wpdb->prefix . 'cree_consejeria_session_notes';
+            $notes = $wpdb->get_results( $wpdb->prepare(
+                "SELECT id, session_date, CAST(AES_DECRYPT(note_encrypted, %s) AS CHAR) AS decrypted_note, created_at 
+                FROM {$notes_table} WHERE client_id = %d ORDER BY session_date DESC",
+                $encryption_key,
+                $client_id
+            ) );
+
+            ob_start();
+            ?>
+            <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                <h2 style="margin-top:0; color: #1e3a8a;"><?php echo esc_html( $user_info->display_name ); ?></h2>
+                <p style="margin: 0; color: #4b5563;">✉️ <?php echo esc_html( $user_info->user_email ); ?> | 👤 Client ID: #<?php echo intval( $user_info->ID ); ?></p>
+            </div>
+
+            <!-- Sub-Tabs Navigation -->
+            <div style="border-bottom: 2px solid #e5e7eb; margin-bottom: 20px; display: flex; gap: 10px;">
+                <button class="cree-prof-tab active" onclick="creeSwitchProfileTab(event, 'prof-forms')">📋 Intake & Assigned Forms</button>
+                <button class="cree-prof-tab" onclick="creeSwitchProfileTab(event, 'prof-notes')">📝 Session Notes</button>
+                <button class="cree-prof-tab" onclick="creeSwitchProfileTab(event, 'prof-appointments')">📅 Appointments</button>
+            </div>
+
+            <!-- TAB 1: FORMS -->
+            <div id="prof-forms" class="cree-prof-content" style="display: block;">
+                <div style="display: grid; grid-template-columns: 320px 1fr; gap: 20px;">
+                    
+                    <!-- Left Side: Assign Form Controls -->
+                    <div style="background: #f9fafb; padding: 18px; border-radius: 6px; border: 1px solid #e5e7eb; height: fit-content;">
+                        <h4 style="margin-top:0; color:#1f2937;">Assign Form</h4>
+                        <form id="cree-profile-assign-form">
+                            <input type="hidden" name="client_id" value="<?php echo intval( $client_id ); ?>">
+                            <div style="margin-bottom: 12px;">
+                                <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:4px;">Select Form to Assign:</label>
+                                <select name="form_type" style="width:100%; padding:8px; border-radius:4px; border:1px solid #d1d5db;" required>
+                                    <option value="">-- Choose Form --</option>
+                                    <option value="registration_short_form">Client Registration Form</option>
+                                    <option value="psychosocial_evaluation">Psychosocial Evaluation</option>
+                                    <option value="substance_abuse_intake">Substance Abuse Intake</option>
+                                    <option value="aviso_de_practicas_de_privacidad">Aviso de Prácticas de Privacidad</option>
+                                    <option value="consentimiento_informado_para_psicoterapia">Consentimiento Informado para Psicoterapia</option>
+                                    <option value="consentimiento_informado_para_terapia_en_linea">Consentimiento Informado para Terapia en Línea</option>
+                                    <option value="consentimiento_para_divulgacion_de_informacion">Consentimiento para Divulgación de Información</option>
+                                    <option value="politicas_de_la_practica">Políticas de la Práctica</option>
+                                </select>
+                            </div>
+                            <button type="submit" style="background:#2563eb; color:#fff; border:none; padding:10px 14px; border-radius:4px; font-weight:bold; cursor:pointer; width:100%;">Assign to Client</button>
+                        </form>
+                    </div>
+
+                    <!-- Right Side: Assigned Intake Records Table -->
+                    <div>
+                        <h4 style="margin-top:0; color:#1f2937;">Assigned Intake Records</h4>
+                        
+                        <?php if ( empty( $assigned_forms ) && empty( $completed_forms ) ) : ?>
+                            <p style="font-style:italic; color:#6b7280; margin: 0;">No forms assigned to or submitted by this client yet.</p>
+                        <?php else : ?>
+                            <table class="widefat striped" style="width:100%; border-collapse:collapse; font-size:13px;">
+                                <thead>
+                                    <tr style="background:#f3f4f6;">
+                                        <th style="padding:10px; text-align:left;">Form Name</th>
+                                        <th style="padding:10px; text-align:left;">Assigned Date</th>
+                                        <th style="padding:10px; text-align:left;">Status</th>
+                                        <th style="padding:10px; text-align:left;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ( $assigned_forms as $af ) : 
+                                        $is_done = isset( $completed_map[ $af->form_type ] );
+                                        $completed_record = $is_done ? $completed_map[ $af->form_type ] : null;
+                                    ?>
+                                        <tr>
+                                            <td style="padding:10px; font-weight:bold;">
+                                                <?php echo esc_html( ucwords( str_replace( '_', ' ', $af->form_type ) ) ); ?>
+                                            </td>
+                                            <td style="padding:10px;">
+                                                <?php echo esc_html( wp_date( 'M j, Y', strtotime( $af->created_at ) ) ); ?>
+                                            </td>
+                                            <td style="padding:10px;">
+                                                <?php if ( $is_done ) : ?>
+                                                    <span style="background: #d1fae5; color: #065f46; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; text-transform: uppercase;">
+                                                        Completed
+                                                    </span>
+                                                <?php else : ?>
+                                                    <span style="background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; text-transform: uppercase;">
+                                                        Pending
+                                                    </span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td style="padding:10px;">
+                                                <?php if ( $is_done ) : ?>
+                                                    <button type="button" onclick="creeViewClientFormDetails(<?php echo intval( $completed_record->id ); ?>)" style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">👁️ View</button>
+                                                    <button type="button" onclick="creeExportPDF(<?php echo intval( $completed_record->id ); ?>)" style="background:#10b981; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">📄 PDF / Print</button>
+                                                <?php else : ?>
+                                                    <button type="button" onclick="creeUnassignForm(<?php echo intval( $af->id ); ?>)" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">🚫 Unassign</button>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        <?php endif; ?>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB 2: SESSION NOTES -->
+            <div id="prof-notes" class="cree-prof-content" style="display: none;">
+                <div style="background: #f9fafb; padding: 15px; border-radius: 6px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                    <h4 style="margin-top:0;">Add Session Note</h4>
+                    <form id="cree-profile-add-note">
+                        <input type="hidden" name="client_id" value="<?php echo intval( $client_id ); ?>">
+                        <div style="margin-bottom:10px;">
+                            <label style="display:block; font-size:12px; font-weight:bold;">Session Date:</label>
+                            <input type="date" name="session_date" value="<?php echo date('Y-m-d'); ?>" style="padding:6px; border-radius:4px; border:1px solid #d1d5db;" required>
+                        </div>
+                        <div style="margin-bottom:10px;">
+                            <textarea name="note_text" rows="4" placeholder="Enter encrypted session notes, SOAP observations, or clinical notes..." style="width:100%; padding:8px; border-radius:4px; border:1px solid #d1d5db;" required></textarea>
+                        </div>
+                        <button type="submit" style="background:#10b981; color:#fff; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">💾 Save Encrypted Note</button>
+                    </form>
+                </div>
+
+                
+
+            <h4>Encrypted Session Note History</h4>
+            <div id="cree-session-notes-history-container">
+                <?php if ( empty( $notes ) ) : ?>
+                    <p id="cree-no-notes-msg" style="font-style:italic; color:#6b7280;">No session notes recorded for this client.</p>
+                <?php else : ?>
+                    <?php foreach ( $notes as $n ) : ?>
+                        <div class="cree-note-card" data-note-id="<?php echo intval( $n->id ); ?>" style="background:#fff; border:1px solid #e5e7eb; border-left:4px solid #10b981; padding:14px; margin-bottom:12px; border-radius:6px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <div style="font-size:12px; font-weight:bold; color:#374151;">📅 Session Date: <?php echo esc_html( $n->session_date ); ?></div>
+                                <button type="button" class="cree-edit-note-btn" style="background:#3b82f6; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">✏️ Edit</button>
+                            </div>
+                            
+                            <!-- Static View Mode -->
+                            <div class="cree-note-text-view" style="font-size:13.5px; color:#1f2937; white-space:pre-wrap;"><?php echo esc_html( $n->decrypted_note ? $n->decrypted_note : '(Encrypted content unavailable)' ); ?></div>
+
+                            <!-- Edit Mode (Hidden by default) -->
+                            <div class="cree-note-edit-form" style="display:none; margin-top:10px;">
+                                <textarea class="cree-note-edit-textarea" rows="4" style="width:100%; padding:8px; border-radius:4px; border:1px solid #d1d5db; font-size:13.5px;"><?php echo esc_textarea( $n->decrypted_note ); ?></textarea>
+                                <div style="margin-top:8px; display:flex; gap:8px;">
+                                    <button type="button" class="cree-save-note-btn" style="background:#10b981; color:#fff; border:none; padding:6px 14px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">💾 Save</button>
+                                    <button type="button" class="cree-cancel-note-btn" style="background:#e5e7eb; color:#374151; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+
+            <!-- TAB 3: APPOINTMENTS -->
+            <div id="prof-appointments" class="cree-prof-content" style="display: none;">
+                <div style="background: #f9fafb; padding: 15px; border-radius: 6px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                    <h4 style="margin-top:0;">Schedule New Session</h4>
+                    <form id="cree-profile-add-appt">
+                        <input type="hidden" name="client_id" value="<?php echo intval( $client_id ); ?>">
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:10px;">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:bold;">Date & Time:</label>
+                                <input type="datetime-local" name="appointment_date" style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;" required>
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:bold;">Notes (Optional):</label>
+                                <input type="text" name="notes" placeholder="Initial focus, room #, or meeting link..." style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;">
+                            </div>
+                        </div>
+                        <button type="submit" style="background:#8b5cf6; color:#fff; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">📅 Book Session</button>
+                    </form>
+                </div>
+
+                <h4>Scheduled & Past Appointments</h4>
+                <?php if ( empty( $appointments ) ) : ?>
+                    <p style="font-style:italic; color:#6b7280;">No appointments scheduled for this client.</p>
+                <?php else : ?>
+                    <table class="widefat striped" style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr>
+                                <th style="padding:8px;">Date & Time</th>
+                                <th style="padding:8px;">Status</th>
+                                <th style="padding:8px;">Notes</th>
+                                <th style="padding:8px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $appointments as $a ) : ?>
+                                <tr>
+                                    <td style="padding:8px; font-weight:bold;"><?php echo esc_html( wp_date( 'F j, Y — g:i a', strtotime( $a->appointment_date ) ) ); ?></td>
+                                    <td style="padding:8px;">
+                                        <span style="padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; text-transform: uppercase; <?php echo $a->status === 'completed' ? 'background:#d1fae5; color:#065f46;' : ($a->status === 'cancelled' ? 'background:#fee2e2; color:#991b1b;' : 'background:#e0f2fe; color:#075985;'); ?>">
+                                            <?php echo esc_html( $a->status ); ?>
+                                        </span>
+                                    </td>
+                                    <td style="padding:8px;"><?php echo esc_html( $a->decrypted_notes ? $a->decrypted_notes : '-' ); ?></td>
+                                    <td style="padding:8px;">
+                                        <?php if ( $a->status !== 'completed' ) : ?>
+                                            <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'completed')" style="background:#10b981; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">✓ Complete</button>
+                                        <?php endif; ?>
+                                        <?php if ( $a->status !== 'cancelled' ) : ?>
+                                            <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'cancelled')" style="background:#ef4444; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">✕ Cancel</button>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+            <?php
+            wp_send_json_success( array( 'html' => ob_get_clean() ) );
+        }
+
+        /**
+         * AJAX Handler: Unassign a Pending Form
+         */
+        public function ajax_unassign_form() {
+            if ( isset( $_POST['security'] ) ) {
+                check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            } elseif ( isset( $_POST['nonce'] ) ) {
+                check_ajax_referer( 'cree_secure_form_submission', 'nonce' );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Security check failed.', 'cree-consejeria' ) ) );
+            }
+
+            if ( ! is_user_logged_in() || ! current_user_can( 'edit_posts' ) ) {
+                wp_send_json_error( array( 'message' => __( 'Unauthorized access.', 'cree-consejeria' ) ) );
+            }
+
+            $assigned_id = isset( $_POST['assigned_id'] ) ? intval( $_POST['assigned_id'] ) : 0;
+            if ( ! $assigned_id ) {
+                wp_send_json_error( array( 'message' => __( 'Invalid assigned record ID.', 'cree-consejeria' ) ) );
+            }
+
+            global $wpdb;
+            $assigned_table = $wpdb->prefix . 'cree_consejeria_assigned_forms';
+
+            $deleted = $wpdb->delete(
+                $assigned_table,
+                array( 'id' => $assigned_id, 'status' => 'assigned' ),
+                array( '%d', '%s' )
+            );
+
+            if ( $deleted ) {
+                wp_send_json_success( array( 'message' => __( 'Form assignment successfully removed.', 'cree-consejeria' ) ) );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Could not unassign form (it may have already been completed).', 'cree-consejeria' ) ) );
+            }
+        }
+
+        /**
+         * AJAX Handler: Fetch Form Template for Client Completion
+         */
+        public function ajax_get_client_form_template() {
+            if ( isset( $_POST['nonce'] ) ) {
+                check_ajax_referer( 'cree_secure_form_submission', 'nonce' );
+            } elseif ( isset( $_POST['security'] ) ) {
+                check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Security verification failed.', 'cree-consejeria' ) ) );
+            }
+
+            if ( ! is_user_logged_in() ) {
+                wp_send_json_error( array( 'message' => __( 'Unauthorized access.', 'cree-consejeria' ) ) );
+            }
+
+            $form_type = isset( $_POST['form_type'] ) ? sanitize_text_field( $_POST['form_type'] ) : '';
+
+            if ( empty( $form_type ) ) {
+                wp_send_json_error( array( 'message' => __( 'No form type specified.', 'cree-consejeria' ) ) );
+            }
+
+            ob_start();
+
+            switch ( $form_type ) {
+                case 'psychosocial_evaluation':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/psychosocial-evaluation_shortcode.php';
+                    break;
+
+                case 'registration_short_form':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/client-registration-short-form_shortcode.php';
+                    break;
+
+                case 'substance_abuse_intake':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/substance-abuse-intake_shortcode.php';
+                    break;
+
+                case 'politicas_de_la_practica':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/politicas-de-la-practica_shortcode.php';
+                    break;
+
+                case 'consentimiento_informado_para_psicoterapia':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consentimiento-informado-para-psicoterapia_shortcode.php';
+                    break;
+
+                case 'consentimiento_informado_para_terapia_en_linea':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consentimiento-informado-para-terapia-en-linea_shortcode.php';
+                    break;
+
+                case 'consentimiento_para_divulgacion_de_informacion':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consentimiento-para-divulgacion-de-informacion_shortcode.php';
+                    break;
+
+                case 'aviso_de_practicas_de_privacidad':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/aviso-de-practicas-de-privacidad_shortcode.php';
+                    break;
+
+                default:
+                    echo '<p style="color:red;">Form template not found for: ' . esc_html( $form_type ) . '</p>';
+                    break;
+            }
+
+            $output = ob_get_clean();
+
+            if ( ! empty( trim( $output ) ) ) {
+                wp_send_json_success( array( 'html' => $output ) );
+            } else {
+                // Fallback: If view file instantiates a class or shortcode callback
+                $shortcode_str = '[cree_' . $form_type . ']';
+                wp_send_json_success( array( 'html' => do_shortcode( $shortcode_str ) ) );
+            }
+        }
+
+        /**
+         * AJAX Handler: Consentimiento Informado para Terapia en Línea Submission
+         */
+        public function ajax_submit_consentimiento_terapia_en_linea() {
+            // 1. Nonce Check
+            if ( isset( $_POST['nonce'] ) ) {
+                check_ajax_referer( 'cree_secure_form_submission', 'nonce' );
+            } elseif ( isset( $_POST['security'] ) ) {
+                check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Security verification failed.', 'cree-consejeria' ) ) );
+            }
+
+            if ( ! is_user_logged_in() ) {
+                wp_send_json_error( array( 'message' => __( 'Unauthorized access.', 'cree-consejeria' ) ) );
+            }
+
+            $current_user_id = get_current_user_id();
+
+            // 2. Sanitize and collect form inputs
+            $form_data = array();
+            foreach ( $_POST as $key => $value ) {
+                if ( in_array( $key, array( 'action', 'nonce', 'security' ), true ) ) {
+                    continue;
+                }
+                $form_data[ sanitize_key( $key ) ] = is_array( $value ) ? array_map( 'sanitize_text_field', $value ) : sanitize_text_field( $value );
+            }
+
+            $json_data      = wp_json_encode( $form_data );
+            $encryption_key = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+
+            global $wpdb;
+            $forms_table = $wpdb->prefix . 'cree_consejeria_client_forms_master';
+
+            // 3. Save Encrypted Record
+            $inserted = $wpdb->query( $wpdb->prepare(
+                "INSERT INTO {$forms_table} (wp_id, form_type, form_data_encrypted, status, created_at) 
+                VALUES (%d, %s, AES_ENCRYPT(%s, %s), %s, %s)",
+                $current_user_id,
+                'consentimiento_informado_para_terapia_en_linea',
+                $json_data,
+                'completed',
+                current_time( 'mysql' )
+            ) );
+
+            if ( false !== $inserted ) {
+                // Also update assigned forms tracking table if applicable
+                $assigned_table = $wpdb->prefix . 'cree_consejeria_assigned_forms';
+                $wpdb->update(
+                    $assigned_table,
+                    array( 'status' => 'completed' ),
+                    array( 'client_id' => $current_user_id, 'form_type' => 'consentimiento_informado_para_terapia_en_linea' ),
+                    array( '%s' ),
+                    array( '%d', '%s' )
+                );
+
+                wp_send_json_success( array( 'message' => __( 'El consentimiento para terapia en línea ha sido enviado exitosamente.', 'cree-consejeria' ) ) );
+            } else {
+                wp_send_json_error( array( 'message' => __( 'Error guardando el formulario en la base de datos.', 'cree-consejeria' ) ) );
+            }
+        }
+
+        /**
+         * AJAX Handler: Update an Existing Session Note
+         */
+        public function ajax_update_session_note() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) {
+                wp_send_json_error( array( 'message' => 'Unauthorized access.' ) );
+            }
+
+            global $wpdb;
+            $notes_table_name = $wpdb->prefix . 'cree_consejeria_session_notes';
+            $encryption_key   = defined( 'SECURE_AUTH_KEY' ) ? SECURE_AUTH_KEY : wp_salt();
+
+            $note_id   = isset( $_POST['note_id'] ) ? intval( $_POST['note_id'] ) : 0;
+            $note_text = isset( $_POST['note_text'] ) ? sanitize_textarea_field( $_POST['note_text'] ) : '';
+
+            if ( ! $note_id || empty( $note_text ) ) {
+                wp_send_json_error( array( 'message' => 'Invalid note ID or empty content.' ) );
+            }
+
+            $updated = $wpdb->query( $wpdb->prepare(
+                "UPDATE $notes_table_name 
+                SET note_encrypted = AES_ENCRYPT(%s, %s) 
+                WHERE id = %d",
+                $note_text,
+                $encryption_key,
+                $note_id
+            ) );
+
+            if ( false !== $updated ) {
+                wp_send_json_success( array( 'message' => '✅ Note updated successfully!' ) );
+            } else {
+                wp_send_json_error( array( 'message' => 'Database update error: ' . $wpdb->last_error ) );
+            }
         }
 
         /**
