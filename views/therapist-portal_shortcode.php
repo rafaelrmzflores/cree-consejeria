@@ -24,6 +24,7 @@ $clients = get_users( array(
         
         <!-- SIDEBAR: CLIENT LIST -->
         <div style="border-right: 1px solid #e5e7eb; background: #f9fafb; padding: 16px;">
+            <button type="button" onclick="creeLoadGlobalSchedule()" style="background:#10b981; color:#fff; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:20px; width:100%; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🗓️ My Schedule & Requests</button>
             <h3 style="margin-top: 0; font-size: 15px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Client Directory</h3>
             <input type="text" id="cree-client-search" placeholder="🔍 Search clients..." style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; margin-bottom: 12px; font-size: 13px;">
 
@@ -72,6 +73,7 @@ $clients = get_users( array(
 
 <script>
 var activeClientId = 0;
+var currentActiveTab = 'prof-forms'; // Tracks the active tab across refreshes
 
 function creeUnassignForm(assignedId) {
     if (!confirm('Are you sure you want to unassign this pending form?')) {
@@ -91,9 +93,6 @@ function creeUnassignForm(assignedId) {
         }
     });
 }
-
-var activeClientId = 0;
-var currentActiveTab = 'prof-forms'; // NEW: Tracks the active tab across refreshes
 
 function creeSwitchProfileTab(evt, tabId) {
     evt.preventDefault();
@@ -304,6 +303,55 @@ function creePrintNote(btn) {
     printWin.document.write('<div class="content">' + noteText + '</div>');
     printWin.document.write('</body></html>');
     printWin.document.close();
+}
+
+function creeLoadGlobalSchedule() {
+    activeClientId = 0;
+    jQuery('.cree-client-card').removeClass('active-client');
+    jQuery('#cree-profile-placeholder').hide();
+    jQuery('#cree-profile-active-content').show().html('<p>Loading schedule dashboard...</p>');
+
+    jQuery.post(CREE_NOTE_FORM.ajax_url, {
+        action: 'cree_load_schedule_dashboard',
+        security: CREE_NOTE_FORM.nonce
+    }, function(res) {
+        if (res && res.success) {
+            jQuery('#cree-profile-active-content').html(res.data.html);
+            
+            // Bind Save Master Schedule
+            jQuery('#cree-master-schedule-form').on('submit', function(e) {
+                e.preventDefault();
+                jQuery.post(CREE_NOTE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_save_master_schedule&security=' + CREE_NOTE_FORM.nonce, function(response) {
+                    alert(response.data.message || 'Saved successfully');
+                });
+            });
+
+            // Bind Add Exception
+            jQuery('#cree-add-exception-form').on('submit', function(e) {
+                e.preventDefault();
+                jQuery.post(CREE_NOTE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_add_schedule_exception&security=' + CREE_NOTE_FORM.nonce, function(response) {
+                    creeLoadGlobalSchedule(); // Refresh to show new date
+                });
+            });
+        } else {
+            jQuery('#cree-profile-active-content').html('<p style="color:red;">' + (res.data ? (res.data.message || res.data) : 'Failed to load dashboard.') + '</p>');
+        }
+    });
+}
+
+function creeRemoveException(id) {
+    if(!confirm('Remove this blocked date?')) return;
+    jQuery.post(CREE_NOTE_FORM.ajax_url, { action: 'cree_remove_schedule_exception', exception_id: id, security: CREE_NOTE_FORM.nonce }, function() {
+        creeLoadGlobalSchedule(); // Refresh
+    });
+}
+
+function creeHandleRequest(id, action) {
+    if(!confirm('Are you sure you want to ' + action + ' this request?')) return;
+    jQuery.post(CREE_NOTE_FORM.ajax_url, { action: 'cree_handle_request', request_id: id, request_action: action, security: CREE_NOTE_FORM.nonce }, function(res) {
+        alert(res.data.message || 'Success');
+        creeLoadGlobalSchedule(); // Refresh
+    });
 }
 
 // Client Directory Search Filter

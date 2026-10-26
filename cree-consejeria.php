@@ -4,7 +4,7 @@
 * Plugin Name: CREE Consejeria CFM
 * Plugin URI: https://www.wordpress.org/cree-consejeria
 * Description: Sistema de Consejería y Formulario de Intake Encryptado
-* Version: 3.0.2
+* Version: 4.0.3
 * Requires at least: 5.6
 * Requires PHP: 7.0
 * Author: Rafael Ramírez Flores
@@ -91,13 +91,23 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             add_action( 'wp_ajax_cree_update_session_note', array( $this, 'ajax_update_session_note' ) );
 
+            add_action( 'wp_ajax_cree_load_schedule_dashboard', array( $this, 'ajax_load_schedule_dashboard' ) );
+
+            add_action( 'wp_ajax_cree_save_master_schedule', array( $this, 'ajax_save_master_schedule' ) );
+            add_action( 'wp_ajax_cree_add_schedule_exception', array( $this, 'ajax_add_schedule_exception' ) );
+            add_action( 'wp_ajax_cree_remove_schedule_exception', array( $this, 'ajax_remove_schedule_exception' ) );
+            add_action( 'wp_ajax_cree_handle_request', array( $this, 'ajax_handle_request' ) );
+
+            add_action( 'wp_ajax_cree_get_available_slots', array( $this, 'ajax_get_available_slots' ) );
+            add_action( 'wp_ajax_cree_submit_appointment_request', array( $this, 'ajax_submit_appointment_request' ) );
+
             add_action( 'plugins_loaded', array( $this, 'check_plugin_version' ) );
         }
 
         public function define_constants() {
             define( 'CREE_CONSEJERIA_CFM_PATH', plugin_dir_path( __FILE__ ) );
             define( 'CREE_CONSEJERIA_CFM_URL', plugin_dir_url( __FILE__ ) );
-            define( 'CREE_CONSEJERIA_CFM_VERSION', '3.0.2' );
+            define( 'CREE_CONSEJERIA_CFM_VERSION', '4.0.3' );
         }
 
         /**
@@ -174,14 +184,16 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                     therapist_id bigint(20) unsigned NOT NULL,
                     appointment_date datetime NOT NULL,
                     duration_minutes int(11) DEFAULT 50,
-                    status varchar(30) DEFAULT 'scheduled', /* scheduled, completed, cancelled, no_show */
+                    status varchar(30) DEFAULT 'scheduled',
                     notes_encrypted blob DEFAULT NULL,
+                    series_id varchar(50) DEFAULT NULL, /* Added to activate method */
                     created_at timestamp DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (id),
                     KEY client_id (client_id),
                     KEY therapist_id (therapist_id),
                     KEY appointment_date (appointment_date),
-                    KEY status (status)
+                    KEY status (status),
+                    KEY series_id (series_id)
                 ) $charset_collate;";
                 require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
                 dbDelta( $sql_appointments );
@@ -847,7 +859,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
         }
 
         /**
-         * Book or Edit an Appointment (Intelligent: Conflict Check & Email)
+         * Book or Edit an Appointment (V4: Intelligent Recurring & Skip-and-Extend)
          */
         public function ajax_book_appointment() {
             if ( isset( $_POST['security'] ) ) { check_ajax_referer( 'cree_secure_note_nonce', 'security' ); } 
@@ -862,58 +874,99 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             $appointment_date = isset( $_POST['appointment_date'] ) ? sanitize_text_field( $_POST['appointment_date'] ) : '';
             $duration_minutes = isset( $_POST['duration_minutes'] ) ? intval( $_POST['duration_minutes'] ) : 50;
             $notes            = isset( $_POST['notes'] ) ? sanitize_textarea_field( $_POST['notes'] ) : '';
+            
+            // Recurrence logic
+            $recurrence       = isset( $_POST['recurrence'] ) ? sanitize_text_field( $_POST['recurrence'] ) : 'none';
+            $recurrence_count = isset( $_POST['recurrence_count'] ) ? intval( $_POST['recurrence_count'] ) : 1;
+            
+            if ( $appointment_id > 0 || $recurrence === 'none' || $recurrence_count < 1 ) {
+                $recurrence_count = 1; // Editing or one-time sessions only loop once
+            }
 
             if ( empty( $appointment_date ) ) wp_send_json_error( array( 'message' => __( 'Please select a valid date and time.', 'cree-consejeria' ) ) );
-
             $appointment_date = str_replace('T', ' ', $appointment_date);
             if ( strlen($appointment_date) == 16 ) $appointment_date .= ':00';
 
             global $wpdb;
             $table_name = $wpdb->prefix . 'cree_consejeria_appointments';
+            $exceptions_table = $wpdb->prefix . 'cree_consejeria_schedule_exceptions';
             $encryption_key = $this->get_encryption_key();
 
-            // CONFLICT CHECK: Ignore the current appointment if we are editing it
-            $overlap_query = $wpdb->prepare(
-                "SELECT id FROM {$table_name} 
-                 WHERE therapist_id = %d AND status = 'scheduled' AND id != %d 
-                 AND appointment_date < DATE_ADD(%s, INTERVAL %d MINUTE) 
-                 AND DATE_ADD(appointment_date, INTERVAL duration_minutes MINUTE) > %s",
-                $therapist_id, $appointment_id, $appointment_date, $duration_minutes, $appointment_date
-            );
-            
-            if ( $wpdb->get_var( $overlap_query ) ) {
-                wp_send_json_error( array( 'message' => __( 'Schedule Conflict: You already have an active appointment booked during this time block.', 'cree-consejeria' ) ) );
+            $series_id = ($recurrence_count > 1) ? uniqid('ser_') : null;
+            $sessions_booked = 0;
+            $attempts = 0;
+            $max_attempts = $recurrence_count + 15; // Failsafe to prevent infinite loops
+            $current_appt_date = $appointment_date;
+            $success_msg = '';
+
+            while ( $sessions_booked < $recurrence_count && $attempts < $max_attempts ) {
+                $attempts++;
+
+                // 1. CONFLICT CHECK: Is there an existing appointment?
+                $overlap_query = $wpdb->prepare(
+                    "SELECT id FROM {$table_name} 
+                     WHERE therapist_id = %d AND status = 'scheduled' AND id != %d 
+                     AND appointment_date < DATE_ADD(%s, INTERVAL %d MINUTE) 
+                     AND DATE_ADD(appointment_date, INTERVAL duration_minutes MINUTE) > %s",
+                    $therapist_id, $appointment_id, $current_appt_date, $duration_minutes, $current_appt_date
+                );
+                
+                // 2. EXCEPTION CHECK: Is this day blocked for a vacation?
+                $exception_query = $wpdb->prepare(
+                    "SELECT id FROM {$exceptions_table} WHERE therapist_id = %d AND exception_date = DATE(%s)",
+                    $therapist_id, $current_appt_date
+                );
+
+                if ( $wpdb->get_var( $overlap_query ) || $wpdb->get_var( $exception_query ) ) {
+                    if ( $recurrence === 'weekly' && $appointment_id == 0 ) {
+                        // SKIP AND EXTEND: Add 1 week and restart the loop without incrementing $sessions_booked
+                        $current_appt_date = date('Y-m-d H:i:s', strtotime($current_appt_date . ' +1 week'));
+                        continue;
+                    } else {
+                        // Hard fail for single-bookings or edits
+                        wp_send_json_error( array( 'message' => __( 'Schedule Conflict: The slot at ' . $current_appt_date . ' is already booked or blocked.', 'cree-consejeria' ) ) );
+                    }
+                }
+
+                // 3. EXECUTE DATABASE WRITE
+                if ( $appointment_id > 0 ) {
+                    $result = $wpdb->query( $wpdb->prepare(
+                        "UPDATE {$table_name} SET appointment_date = %s, duration_minutes = %d, notes_encrypted = AES_ENCRYPT(%s, %s) WHERE id = %d",
+                        $current_appt_date, $duration_minutes, $notes, $encryption_key, $appointment_id
+                    ) );
+                    $success_msg = 'Appointment successfully updated.';
+                } else {
+                    $result = $wpdb->query( $wpdb->prepare(
+                        "INSERT INTO {$table_name} (client_id, therapist_id, appointment_date, duration_minutes, status, notes_encrypted, series_id)
+                         VALUES (%d, %d, %s, %d, 'scheduled', AES_ENCRYPT(%s, %s), %s)",
+                        $client_id, $therapist_id, $current_appt_date, $duration_minutes, $notes, $encryption_key, $series_id
+                    ) );
+                    $success_msg = ($recurrence_count > 1) ? $recurrence_count . ' recurring appointments scheduled successfully.' : 'Appointment successfully scheduled.';
+                }
+                
+                $sessions_booked++;
+                $current_appt_date = date('Y-m-d H:i:s', strtotime($current_appt_date . ' +1 week')); // Prep date for next iteration
             }
 
-            if ( $appointment_id > 0 ) {
-                // UPDATE EXISTING APPOINTMENT
-                $result = $wpdb->query( $wpdb->prepare(
-                    "UPDATE {$table_name} SET appointment_date = %s, duration_minutes = %d, notes_encrypted = AES_ENCRYPT(%s, %s) WHERE id = %d",
-                    $appointment_date, $duration_minutes, $notes, $encryption_key, $appointment_id
-                ) );
-                $success_msg = 'Appointment successfully updated.';
-            } else {
-                // INSERT NEW APPOINTMENT
-                $result = $wpdb->query( $wpdb->prepare(
-                    "INSERT INTO {$table_name} (client_id, therapist_id, appointment_date, duration_minutes, status, notes_encrypted)
-                     VALUES (%d, %d, %s, %d, 'scheduled', AES_ENCRYPT(%s, %s))",
-                    $client_id, $therapist_id, $appointment_date, $duration_minutes, $notes, $encryption_key
-                ) );
-                $success_msg = 'Appointment successfully scheduled and client notified.';
-            }
-
-            if ( $result !== false ) {
-                // AUTO-EMAIL NOTIFICATION
+            if ( $sessions_booked > 0 ) {
                 $client_info = get_userdata( $client_id );
                 if ( $client_info ) {
                     $formatted_time = wp_date( 'l, F j, Y \a\t g:i A', strtotime( $appointment_date ) );
                     $subject = $appointment_id > 0 ? '[CREE Consejería] Actualización de Cita' : '[CREE Consejería] Nueva Cita Programada';
-                    $message = "Hola {$client_info->first_name},\n\nSu sesión ha sido confirmada/actualizada.\n\nFecha y Hora: {$formatted_time}\nDuración: {$duration_minutes} minutos\nNotas / Enlace: {$notes}\n\nSi necesita reprogramar, por favor hágalo con al menos 24 horas de antelación accediendo al Portal del Cliente.\n\nAtentamente,\nEquipo de CREE Consejería";
+                    
+                    $message = "Hola {$client_info->first_name},\n\nSu sesión ha sido confirmada/actualizada.\n\n";
+                    if ($recurrence_count > 1) {
+                        $message .= "Frecuencia: Semanal ($sessions_booked sesiones)\nInicio: {$formatted_time}\n";
+                    } else {
+                        $message .= "Fecha y Hora: {$formatted_time}\n";
+                    }
+                    $message .= "Duración: {$duration_minutes} minutos\nNotas / Enlace: {$notes}\n\nSi necesita reprogramar, por favor hágalo con al menos 24 horas de antelación.\n\nAtentamente,\nEquipo de CREE Consejería";
+                    
                     wp_mail( $client_info->user_email, $subject, $message, array('Content-Type: text/plain; charset=UTF-8') );
                 }
                 wp_send_json_success( array( 'message' => __( $success_msg, 'cree-consejeria' ) ) );
             } else {
-                wp_send_json_error( array( 'message' => __( 'Failed to save appointment in database.', 'cree-consejeria' ) ) );
+                wp_send_json_error( array( 'message' => __( 'Failed to save appointments. It is possible all requested dates were blocked.', 'cree-consejeria' ) ) );
             }
         }
 
@@ -1350,24 +1403,27 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             // 1. Appointments Table
             $appointments_table = $wpdb->prefix . 'cree_consejeria_appointments';
-            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $appointments_table ) ) !== $appointments_table ) {
-                $sql_appointments = "CREATE TABLE $appointments_table (
-                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-                    client_id bigint(20) unsigned NOT NULL,
-                    therapist_id bigint(20) unsigned NOT NULL,
-                    appointment_date datetime NOT NULL,
-                    duration_minutes int(11) DEFAULT 50,
-                    status varchar(30) DEFAULT 'scheduled',
-                    notes_encrypted blob DEFAULT NULL,
-                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (id),
-                    KEY client_id (client_id),
-                    KEY therapist_id (therapist_id),
-                    KEY appointment_date (appointment_date),
-                    KEY status (status)
-                ) $charset_collate;";
-                dbDelta( $sql_appointments );
-            }
+            
+            // 1. Appointments & Calendar Management Table
+            $sql_appointments = "CREATE TABLE $appointments_table (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                client_id bigint(20) unsigned NOT NULL,
+                therapist_id bigint(20) unsigned NOT NULL,
+                appointment_date datetime NOT NULL,
+                duration_minutes int(11) DEFAULT 50,
+                status varchar(30) DEFAULT 'scheduled',
+                notes_encrypted blob DEFAULT NULL,
+                series_id varchar(50) DEFAULT NULL, 
+                created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY client_id (client_id),
+                KEY therapist_id (therapist_id),
+                KEY appointment_date (appointment_date),
+                KEY status (status),
+                KEY series_id (series_id)
+            ) $charset_collate;";
+            require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+            dbDelta( $sql_appointments );
 
             // 2. Treatment Goals Table
             $goals_table = $wpdb->prefix . 'cree_consejeria_treatment_goals';
@@ -1434,6 +1490,57 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                     KEY therapist_id (therapist_id)
                 ) $charset_collate;";
                 dbDelta( $sql_notes );
+            }
+
+            // 5. v4.0 Master Schedule Rules Table
+            $master_schedule_table = $wpdb->prefix . 'cree_consejeria_master_schedule';
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $master_schedule_table ) ) !== $master_schedule_table ) {
+                $sql_master = "CREATE TABLE $master_schedule_table (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    therapist_id bigint(20) unsigned NOT NULL,
+                    day_of_week tinyint(1) NOT NULL, /* 0=Sunday, 1=Monday, 2=Tuesday, etc. */
+                    start_time time NOT NULL,
+                    end_time time NOT NULL,
+                    is_active tinyint(1) DEFAULT 1,
+                    PRIMARY KEY (id),
+                    KEY therapist_id (therapist_id)
+                ) $charset_collate;";
+                dbDelta( $sql_master );
+            }
+
+            // 6. v4.0 Schedule Exceptions Table (Time Off / Blocked Dates)
+            $exceptions_table = $wpdb->prefix . 'cree_consejeria_schedule_exceptions';
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $exceptions_table ) ) !== $exceptions_table ) {
+                $sql_exceptions = "CREATE TABLE $exceptions_table (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    therapist_id bigint(20) unsigned NOT NULL,
+                    exception_date date NOT NULL,
+                    is_blocked tinyint(1) DEFAULT 1,
+                    reason varchar(255) DEFAULT NULL,
+                    PRIMARY KEY (id),
+                    KEY therapist_id (therapist_id),
+                    KEY exception_date (exception_date)
+                ) $charset_collate;";
+                dbDelta( $sql_exceptions );
+            }
+
+            // 7. v4.0 Client Appointment Requests Queue
+            $requests_table = $wpdb->prefix . 'cree_consejeria_appointment_requests';
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $requests_table ) ) !== $requests_table ) {
+                $sql_requests = "CREATE TABLE $requests_table (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    client_id bigint(20) unsigned NOT NULL,
+                    therapist_id bigint(20) unsigned NOT NULL,
+                    requested_datetime datetime NOT NULL,
+                    duration_minutes int(11) DEFAULT 50,
+                    status varchar(20) DEFAULT 'pending', /* pending, approved, denied, expired */
+                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY client_id (client_id),
+                    KEY therapist_id (therapist_id),
+                    KEY status (status)
+                ) $charset_collate;";
+                dbDelta( $sql_requests );
             }
         }
 
@@ -1837,6 +1944,21 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                                 <input type="text" name="notes" placeholder="Room #, or link..." style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;">
                             </div>
                         </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px; padding-top: 10px; border-top: 1px solid #e5e7eb;" id="cree-recurrence-section">
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:bold;">Recurrence:</label>
+                                <select name="recurrence" style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;" onchange="if(this.value==='weekly'){jQuery('#cree-recurrence-count-wrap').show();}else{jQuery('#cree-recurrence-count-wrap').hide();}">
+                                    <option value="none">One-Time Session</option>
+                                    <option value="weekly">Weekly</option>
+                                </select>
+                            </div>
+                            <div id="cree-recurrence-count-wrap" style="display:none;">
+                                <label style="display:block; font-size:12px; font-weight:bold;">Number of Sessions:</label>
+                                <input type="number" name="recurrence_count" value="1" min="1" max="52" style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;">
+                            </div>
+                        </div>
+
                         <div style="display: flex; gap: 10px;">
                             <button type="submit" id="cree-appt-submit-btn" style="background:#8b5cf6; color:#fff; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">📅 Book Session</button>
                             <button type="button" id="cree-appt-cancel-edit-btn" style="display:none; background:#e5e7eb; color:#374151; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer;">Cancel Edit</button>
@@ -2123,6 +2245,371 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             }
         }
 
+        /**
+         * AJAX Handler: Load Global Schedule & Requests Dashboard
+         */
+        public function ajax_load_schedule_dashboard() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized access.' ) );
+
+            global $wpdb;
+            $therapist_id = get_current_user_id();
+
+            // 1. Fetch Pending Requests
+            $requests_table = $wpdb->prefix . 'cree_consejeria_appointment_requests';
+            $pending_requests = $wpdb->get_results( $wpdb->prepare(
+                "SELECT r.*, u.display_name AS client_name 
+                 FROM {$requests_table} r 
+                 LEFT JOIN {$wpdb->users} u ON r.client_id = u.ID 
+                 WHERE r.therapist_id = %d AND r.status = 'pending' 
+                 ORDER BY r.requested_datetime ASC",
+                $therapist_id
+            ) );
+
+            // 2. Fetch Master Schedule
+            $master_table = $wpdb->prefix . 'cree_consejeria_master_schedule';
+            $schedule_rules = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$master_table} WHERE therapist_id = %d", $therapist_id ) );
+            $master = array();
+            foreach ( $schedule_rules as $rule ) { $master[$rule->day_of_week] = $rule; }
+
+            // 3. Fetch Upcoming Exceptions
+            $exceptions_table = $wpdb->prefix . 'cree_consejeria_schedule_exceptions';
+            $exceptions = $wpdb->get_results( $wpdb->prepare( 
+                "SELECT * FROM {$exceptions_table} WHERE therapist_id = %d AND exception_date >= CURDATE() ORDER BY exception_date ASC", 
+                $therapist_id 
+            ) );
+
+            ob_start();
+            ?>
+            <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                <h2 style="margin-top:0; color: #1e3a8a;">Availability & Requests Dashboard</h2>
+                <p style="margin: 0; color: #4b5563;">Manage your recurring schedule, block off time, and approve client booking requests.</p>
+            </div>
+
+            <!-- SECTION 1: PENDING REQUESTS -->
+            <div style="background: #f9fafb; padding: 18px; border-radius: 6px; border: 1px solid #e5e7eb; margin-bottom: 25px;">
+                <h3 style="margin-top:0; color: #d97706;">Pending Client Requests</h3>
+                <?php if ( empty( $pending_requests ) ) : ?>
+                    <p style="font-style:italic; color:#6b7280; margin:0;">No pending appointment requests.</p>
+                <?php else : ?>
+                    <table class="widefat striped" style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr>
+                                <th style="padding:8px; text-align: left;">Client</th>
+                                <th style="padding:8px; text-align: left;">Requested Time</th>
+                                <th style="padding:8px; text-align: left;">Duration</th>
+                                <th style="padding:8px; text-align: left;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $pending_requests as $req ) : ?>
+                                <tr>
+                                    <td style="padding:8px; font-weight:bold;"><?php echo esc_html( $req->client_name ); ?></td>
+                                    <td style="padding:8px;"><?php echo esc_html( wp_date( 'D, M j \a\t g:i a', strtotime( $req->requested_datetime ) ) ); ?></td>
+                                    <td style="padding:8px;"><?php echo intval( $req->duration_minutes ); ?>m</td>
+                                    <td style="padding:8px;">
+                                        <button type="button" onclick="creeHandleRequest(<?php echo intval( $req->id ); ?>, 'approve')" style="background:#10b981; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer;">✔️ Approve</button>
+                                        <button type="button" onclick="creeHandleRequest(<?php echo intval( $req->id ); ?>, 'deny')" style="background:#ef4444; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer;">🚫 Deny</button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+
+            <!-- SECTION 2: MASTER SCHEDULE & EXCEPTIONS (Side by side) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                
+                <!-- Master Weekly Schedule -->
+                <div style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px;">
+                    <h4 style="margin-top:0;">Master Weekly Schedule</h4>
+                    <form id="cree-master-schedule-form">
+                        <?php 
+                        $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                        foreach ( $days as $index => $day_name ) : 
+                            // Map to 1-7 for consistency
+                            $db_index = $index + 1; 
+                            $is_active = isset($master[$db_index]) ? $master[$db_index]->is_active : 0;
+                            $start = isset($master[$db_index]) ? $master[$db_index]->start_time : '09:00:00';
+                            $end = isset($master[$db_index]) ? $master[$db_index]->end_time : '17:00:00';
+                        ?>
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid #f3f4f6;">
+                            <div style="width: 100px;">
+                                <label style="font-weight:bold; font-size:13px;">
+                                    <input type="checkbox" name="day_<?php echo $db_index; ?>_active" value="1" <?php checked( $is_active, 1 ); ?>> 
+                                    <?php echo $day_name; ?>
+                                </label>
+                            </div>
+                            <input type="time" name="day_<?php echo $db_index; ?>_start" value="<?php echo esc_attr( $start ); ?>" style="padding:4px; border:1px solid #d1d5db; border-radius:4px;">
+                            <span>to</span>
+                            <input type="time" name="day_<?php echo $db_index; ?>_end" value="<?php echo esc_attr( $end ); ?>" style="padding:4px; border:1px solid #d1d5db; border-radius:4px;">
+                        </div>
+                        <?php endforeach; ?>
+                        <button type="submit" style="background:#2563eb; color:#fff; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:10px; width:100%;">💾 Save Master Schedule</button>
+                    </form>
+                </div>
+
+                <!-- Blocked Dates (Exceptions) -->
+                <div style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px;">
+                    <h4 style="margin-top:0;">Time Off & Blocked Dates</h4>
+                    <form id="cree-add-exception-form" style="margin-bottom: 20px;">
+                        <div style="margin-bottom: 10px;">
+                            <label style="display:block; font-size:12px; font-weight:bold;">Date to Block:</label>
+                            <input type="date" name="exception_date" required style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label style="display:block; font-size:12px; font-weight:bold;">Reason (Optional):</label>
+                            <input type="text" name="reason" placeholder="e.g. Thanksgiving, Vacation" style="width:100%; padding:6px; border:1px solid #d1d5db; border-radius:4px;">
+                        </div>
+                        <button type="submit" style="background:#4b5563; color:#fff; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer; width:100%;">🔒 Add Blocked Date</button>
+                    </form>
+
+                    <h5 style="margin-bottom:5px;">Upcoming Blocked Dates:</h5>
+                    <?php if ( empty( $exceptions ) ) : ?>
+                        <p style="font-size:12px; color:#6b7280; font-style:italic;">No dates currently blocked.</p>
+                    <?php else : ?>
+                        <ul style="padding-left: 20px; font-size: 13px; margin:0;">
+                            <?php foreach ( $exceptions as $exc ) : ?>
+                                <li style="margin-bottom: 5px;">
+                                    <strong><?php echo esc_html( wp_date( 'M j, Y', strtotime( $exc->exception_date ) ) ); ?></strong> 
+                                    <?php echo $exc->reason ? '- ' . esc_html($exc->reason) : ''; ?>
+                                    <button type="button" onclick="creeRemoveException(<?php echo intval($exc->id); ?>)" style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:11px; text-decoration:underline;">Remove</button>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+
+            </div>
+            <?php
+            wp_send_json_success( array( 'html' => ob_get_clean() ) );
+        }
+
+        public function ajax_save_master_schedule() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            global $wpdb;
+            $therapist_id = get_current_user_id();
+            $table = $wpdb->prefix . 'cree_consejeria_master_schedule';
+
+            for ( $i = 1; $i <= 7; $i++ ) {
+                $is_active = isset($_POST["day_{$i}_active"]) ? 1 : 0;
+                $start = sanitize_text_field($_POST["day_{$i}_start"]);
+                $end = sanitize_text_field($_POST["day_{$i}_end"]);
+
+                $existing_id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE therapist_id = %d AND day_of_week = %d", $therapist_id, $i ) );
+
+                if ( $existing_id ) {
+                    $wpdb->update( $table, array('is_active' => $is_active, 'start_time' => $start, 'end_time' => $end), array('id' => $existing_id) );
+                } else {
+                    $wpdb->insert( $table, array('therapist_id' => $therapist_id, 'day_of_week' => $i, 'start_time' => $start, 'end_time' => $end, 'is_active' => $is_active) );
+                }
+            }
+            wp_send_json_success( array( 'message' => 'Master schedule saved successfully.' ) );
+        }
+
+        public function ajax_add_schedule_exception() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            global $wpdb;
+            $date = sanitize_text_field( $_POST['exception_date'] );
+            $reason = sanitize_text_field( $_POST['reason'] );
+
+            if ( empty($date) ) wp_send_json_error( array( 'message' => 'Date is required.' ) );
+
+            $wpdb->insert( $wpdb->prefix . 'cree_consejeria_schedule_exceptions', array(
+                'therapist_id' => get_current_user_id(),
+                'exception_date' => $date,
+                'reason' => $reason,
+                'is_blocked' => 1
+            ) );
+            wp_send_json_success( array( 'message' => 'Date blocked successfully.' ) );
+        }
+
+        public function ajax_remove_schedule_exception() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            global $wpdb;
+            $wpdb->delete( $wpdb->prefix . 'cree_consejeria_schedule_exceptions', array( 'id' => intval($_POST['exception_id']) ) );
+            wp_send_json_success();
+        }
+
+        public function ajax_handle_request() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            global $wpdb;
+            $request_id = intval( $_POST['request_id'] );
+            $action = sanitize_text_field( $_POST['request_action'] ); // 'approve' or 'deny'
+            $requests_table = $wpdb->prefix . 'cree_consejeria_appointment_requests';
+            
+            $request = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$requests_table} WHERE id = %d", $request_id ) );
+            if ( ! $request ) wp_send_json_error( array( 'message' => 'Request not found.' ) );
+
+            $new_status = $action === 'approve' ? 'approved' : 'denied';
+            $wpdb->update( $requests_table, array('status' => $new_status), array('id' => $request_id) );
+
+            if ( $action === 'approve' ) {
+                // Convert to actual appointment
+                $encryption_key = $this->get_encryption_key();
+                $wpdb->insert( $wpdb->prefix . 'cree_consejeria_appointments', array(
+                    'client_id' => $request->client_id,
+                    'therapist_id' => $request->therapist_id,
+                    'appointment_date' => $request->requested_datetime,
+                    'duration_minutes' => $request->duration_minutes,
+                    'status' => 'scheduled',
+                    'notes_encrypted' => $wpdb->get_var($wpdb->prepare("SELECT AES_ENCRYPT(%s, %s)", 'Requested via portal', $encryption_key))
+                ) );
+                
+                // Auto-deny overlapping pending requests for this exact slot
+                $wpdb->query( $wpdb->prepare(
+                    "UPDATE {$requests_table} SET status = 'denied' WHERE therapist_id = %d AND requested_datetime = %s AND status = 'pending'",
+                    $request->therapist_id, $request->requested_datetime
+                ) );
+            }
+            wp_send_json_success( array( 'message' => 'Request ' . $new_status . ' successfully.' ) );
+        }
+
+        /**
+         * AJAX Handler: Calculate Available Slots for a Given Date
+         */
+        public function ajax_get_available_slots() {
+            // check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            // if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            // $date = isset( $_POST['date'] ) ? sanitize_text_field( $_POST['date'] ) : '';
+            // $therapist_id = isset( $_POST['therapist_id'] ) ? intval( $_POST['therapist_id'] ) : 1; // Default to main therapist if 1-on-1
+
+            // if ( empty( $date ) ) wp_send_json_error( array( 'message' => 'Date is required.' ) );
+
+            if ( isset( $_POST['security'] ) ) { check_ajax_referer( 'cree_secure_note_nonce', 'security' ); } 
+            elseif ( isset( $_POST['nonce'] ) ) { check_ajax_referer( 'cree_secure_form_submission', 'nonce' ); } 
+            else { wp_send_json_error( array( 'message' => __( 'Security verification failed.', 'cree-consejeria' ) ) ); }
+
+            if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            $date = isset( $_POST['date'] ) ? sanitize_text_field( $_POST['date'] ) : '';
+            $therapist_id = isset( $_POST['therapist_id'] ) ? intval( $_POST['therapist_id'] ) : 1; 
+
+            if ( empty( $date ) ) wp_send_json_error( array( 'message' => 'Date is required.' ) );
+
+            global $wpdb;
+            $current_time = current_time('timestamp');
+            $requested_timestamp = strtotime( $date );
+            
+            // Rule 1: Minimum 24-hour notice
+            if ( $requested_timestamp < ($current_time + 86400) ) {
+                wp_send_json_success( array( 'slots' => array(), 'message' => 'Appointments must be booked at least 24 hours in advance.' ) );
+            }
+
+            // Rule 2: Check for Blocked Exceptions
+            $is_blocked = $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}cree_consejeria_schedule_exceptions WHERE therapist_id = %d AND exception_date = %s",
+                $therapist_id, $date
+            ) );
+            if ( $is_blocked ) wp_send_json_success( array( 'slots' => array(), 'message' => 'This date is blocked by the therapist.' ) );
+
+            // Rule 3: Get Master Schedule for this Day of the Week
+            // MySQL DAYOFWEEK returns 1=Sunday, 2=Monday, etc. Our table uses 1=Monday, 7=Sunday.
+            $day_of_week = date('N', $requested_timestamp); 
+            $master = $wpdb->get_row( $wpdb->prepare(
+                "SELECT start_time, end_time FROM {$wpdb->prefix}cree_consejeria_master_schedule WHERE therapist_id = %d AND day_of_week = %d AND is_active = 1",
+                $therapist_id, $day_of_week
+            ) );
+            
+            if ( ! $master ) wp_send_json_success( array( 'slots' => array(), 'message' => 'No active hours for this day.' ) );
+
+            // Fetch existing approved/scheduled appointments for this date
+            $appointments = $wpdb->get_results( $wpdb->prepare(
+                "SELECT appointment_date, duration_minutes FROM {$wpdb->prefix}cree_consejeria_appointments 
+                 WHERE therapist_id = %d AND DATE(appointment_date) = %s AND status IN ('scheduled', 'completed')",
+                $therapist_id, $date
+            ) );
+
+            // Fetch existing pending requests for this date (so we can label them "High Demand")
+            $requests = $wpdb->get_results( $wpdb->prepare(
+                "SELECT requested_datetime FROM {$wpdb->prefix}cree_consejeria_appointment_requests 
+                 WHERE therapist_id = %d AND DATE(requested_datetime) = %s AND status = 'pending'",
+                $therapist_id, $date
+            ) );
+
+            // Generate 50-min slots + 10-min buffer (60 min intervals)
+            $slots = array();
+            $start = strtotime( $date . ' ' . $master->start_time );
+            $end = strtotime( $date . ' ' . $master->end_time );
+
+            while ( $start + 3000 <= $end ) { // 3000 seconds = 50 mins
+                $slot_time_mysql = date('Y-m-d H:i:s', $start);
+                
+                // Check if overlapping with existing appointments
+                $conflict = false;
+                foreach ( $appointments as $appt ) {
+                    $appt_start = strtotime($appt->appointment_date);
+                    $appt_end = $appt_start + ($appt->duration_minutes * 60);
+                    if ( $start < $appt_end && ($start + 3000) > $appt_start ) {
+                        $conflict = true; break;
+                    }
+                }
+
+                if ( ! $conflict ) {
+                    // Check if there are pending requests for this exact slot
+                    $high_demand = false;
+                    foreach ( $requests as $req ) {
+                        if ( $req->requested_datetime === $slot_time_mysql ) {
+                            $high_demand = true; break;
+                        }
+                    }
+
+                    $slots[] = array(
+                        'time' => date('h:i A', $start),
+                        'mysql_datetime' => $slot_time_mysql,
+                        'high_demand' => $high_demand
+                    );
+                }
+                $start += 3600; // Increment by 60 mins (50 min session + 10 min buffer)
+            }
+
+            wp_send_json_success( array( 'slots' => $slots ) );
+        }
+
+        /**
+         * AJAX Handler: Submit Client Request
+         */
+        public function ajax_submit_appointment_request() {
+            // check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            // if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            if ( isset( $_POST['security'] ) ) { check_ajax_referer( 'cree_secure_note_nonce', 'security' ); } 
+            elseif ( isset( $_POST['nonce'] ) ) { check_ajax_referer( 'cree_secure_form_submission', 'nonce' ); } 
+            else { wp_send_json_error( array( 'message' => __( 'Security verification failed.', 'cree-consejeria' ) ) ); }
+
+            if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            global $wpdb;
+            $client_id = get_current_user_id();
+            $therapist_id = isset( $_POST['therapist_id'] ) ? intval( $_POST['therapist_id'] ) : 1;
+            $requested_datetime = sanitize_text_field( $_POST['requested_datetime'] );
+
+            if ( empty($requested_datetime) ) wp_send_json_error( array( 'message' => 'Datetime required.' ) );
+
+            $wpdb->insert(
+                $wpdb->prefix . 'cree_consejeria_appointment_requests',
+                array(
+                    'client_id' => $client_id,
+                    'therapist_id' => $therapist_id,
+                    'requested_datetime' => $requested_datetime,
+                    'duration_minutes' => 50,
+                    'status' => 'pending'
+                )
+            );
+
+            wp_send_json_success( array( 'message' => 'Request sent successfully. You will be notified once the therapist reviews it.' ) );
+        }
+
         private function get_encryption_key() {
             $key = get_option( 'cree_consejeria_encryption_key' );
             if ( ! $key ) {
@@ -2145,20 +2632,37 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
          */
         public static function uninstall() {
             delete_option( 'cree_consejeria_cfm_db_version' );
+            delete_option( 'cree_consejeria_cfm_version' );
+            delete_option( 'cree_consejeria_encryption_key' ); // Optional: Removes the encryption key if you want a true hard reset
             
             global $wpdb;
+            
+            // 1. Delete generated pages
             $wpdb->query(
-                "DELETE FROM $wpdb->posts WHERE post_name IN ('registration-short-form', 'substance-abuse-form', 'psychosocial-evaluation-form', 
-                'aviso-de-practicas-de-privacidad', 'consentimiento-informado-para-psicoterapia', 
-                'politicas-de-la-practica', 'consentimiento-informado-para-terapia-en-linea', 'consentimiento-para-divulgacion-de-informacion', 'client-portal', 'client-login') AND post_type = 'page'"
+                "DELETE FROM $wpdb->posts WHERE post_name IN (
+                    'registration-short-form', 'substance-abuse-form', 'psychosocial-evaluation-form', 
+                    'aviso-de-practicas-de-privacidad', 'consentimiento-informado-para-psicoterapia', 
+                    'politicas-de-la-practica', 'consentimiento-informado-para-terapia-en-linea', 
+                    'consentimiento-para-divulgacion-de-informacion', 'client-portal', 'client-login', 'cree-therapist-portal'
+                ) AND post_type = 'page'"
             );
-            $wpdb->query(
-                "DROP TABLE IF EXISTS {$wpdb->prefix}cree_consejeria_client_forms_master"
+            
+            // 2. Drop all custom database tables
+            $tables_to_drop = array(
+                $wpdb->prefix . 'cree_consejeria_client_forms_master',
+                $wpdb->prefix . 'cree_consejeria_session_notes',
+                $wpdb->prefix . 'cree_consejeria_appointments',
+                $wpdb->prefix . 'cree_consejeria_treatment_goals',
+                $wpdb->prefix . 'cree_consejeria_assigned_forms',
+                $wpdb->prefix . 'cree_consejeria_master_schedule',
+                $wpdb->prefix . 'cree_consejeria_schedule_exceptions',
+                $wpdb->prefix . 'cree_consejeria_appointment_requests'
             );
-            $wpdb->query(
-                "DROP TABLE IF EXISTS {$wpdb->prefix}cree_consejeria_session_notes"
-            );
-        }       
+
+            foreach ( $tables_to_drop as $table ) {
+                $wpdb->query( "DROP TABLE IF EXISTS {$table}" );
+            }
+        }     
     }
 }
 

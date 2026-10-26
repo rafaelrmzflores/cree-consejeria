@@ -139,7 +139,76 @@ class CREE_Consejeria_Client_Portal {
                 </div>
             </div>
 
+            <!-- V4.0 SMART BOOKING CALENDAR -->
+            <div style="background: #fff; padding: 25px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 30px;">
+                <h3 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">📅 Request a New Session</h3>
+                <p style="font-size: 14px; color: #4b5563; margin-bottom: 20px;">Select a date below to view available appointment times. All times are based on your therapist's current availability.</p>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 14px;">Select a Date (Minimum 24-hr notice):</label>
+                    <input type="date" id="cree-booking-date" min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>" style="padding: 10px; border-radius: 6px; border: 1px solid #d1d5db; width: 100%; max-width: 250px; font-size: 15px;">
+                </div>
+                
+                <div id="cree-available-slots-container" style="display: flex; flex-wrap: wrap; gap: 12px; min-height: 50px;">
+                    <p style="color: #9ca3af; font-style: italic; margin: 0; padding-top: 10px;">Please select a date to view available times.</p>
+                </div>
+            </div>
+
         </div>
+        <script>
+            // Listen for date selection
+            jQuery('#cree-booking-date').on('change', function() {
+                var selectedDate = jQuery(this).val();
+                if (!selectedDate) return;
+                
+                jQuery('#cree-available-slots-container').html('<p style="color:#6b7280; font-weight:bold;">Loading available times...</p>');
+                
+                jQuery.post(CREE_INTAKE_FORM.ajax_url, {
+                    action: 'cree_get_available_slots',
+                    nonce: CREE_INTAKE_FORM.nonce,
+                    date: selectedDate,
+                    therapist_id: 1 
+                }, function(res) {
+                    if (res && res.success) {
+                        var slotsHTML = '';
+                        if (res.data.slots && res.data.slots.length > 0) {
+                            res.data.slots.forEach(function(slot) {
+                                var demandStyle = slot.high_demand ? 'border-color:#d97706; background:#fffbeb;' : 'border-color:#d1d5db; background:#f9fafb;';
+                                var demandBadge = slot.high_demand ? '<span style="display:block; font-size:11px; color:#d97706; margin-top:4px;">🔥 High Demand</span>' : '';
+                                
+                                slotsHTML += '<button type="button" onclick="creeRequestSlot(\'' + slot.mysql_datetime + '\')" style="' + demandStyle + ' padding:12px 18px; border-radius:6px; border-width:1px; border-style:solid; cursor:pointer; text-align:center; transition:all 0.2s ease;">' + 
+                                            '<span style="font-weight:bold; font-size:14px; color:#1f2937;">' + slot.time + '</span>' + demandBadge + 
+                                            '</button>';
+                            });
+                        } else {
+                            slotsHTML = '<p style="color:#ef4444; font-weight:bold;">' + (res.data.message || 'No available slots for this date.') + '</p>';
+                        }
+                        jQuery('#cree-available-slots-container').html(slotsHTML);
+                    } else {
+                        jQuery('#cree-available-slots-container').html('<p style="color:red;">Error loading schedule: ' + (res.data ? res.data.message : '') + '</p>');
+                    }
+                });
+            });
+
+            // Handle the request submission
+            function creeRequestSlot(datetime) {
+                if (!confirm('Are you sure you want to request this appointment time?')) return;
+                
+                jQuery.post(CREE_INTAKE_FORM.ajax_url, {
+                    action: 'cree_submit_appointment_request',
+                    nonce: CREE_INTAKE_FORM.nonce,
+                    requested_datetime: datetime,
+                    therapist_id: 1
+                }, function(res) {
+                    if (res && res.success) {
+                        alert('✔️ ' + res.data.message);
+                        jQuery('#cree-booking-date').trigger('change');
+                    } else {
+                        alert('❌ ' + (res.data.message || 'Error submitting request.'));
+                    }
+                });
+            }
+        </script>
         <?php
         return ob_get_clean();
     }
