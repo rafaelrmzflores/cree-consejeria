@@ -1,0 +1,414 @@
+:root {
+  /* Original Base Palette */
+  --cree-primary: #0056b3;
+  --cree-primary-hover: #004085;
+  --cree-focus-ring: rgba(34, 113, 177, 0.3);
+  --cree-border: #8c8f94;
+  --cree-bg-light: #f6f7f7;
+  --cree-text: #2c3338;
+  --cree-heading: #1d2327;
+  --cree-error: #dc3232;
+
+  /* New Thai Silk Palette */
+  --thai-sapphire: #03a9f4;
+  --thai-sapphire-dark: #01579b;
+  --thai-sapphire-shadow: #0288d1;
+  --thai-sapphire-tint: #e1f5fe;
+
+  --thai-emerald: #9ccc65;
+  --thai-emerald-dark: #1b5e20;
+  --thai-emerald-shadow: #7cb342;
+  --thai-emerald-tint: #f1f8e9;
+
+  --thai-emerald-ring: #00e5ff;
+  --thai-emerald-ring-shadow: #00b8d4;
+
+  --thai-saffron: #ffca28;
+  --thai-saffron-dark: #4e342e;
+  --thai-saffron-shadow: #ff8f00;
+  --thai-saffron-tint: #fff8e1;
+
+  --thai-lotus: #f06292;
+  --thai-lotus-dark: #880e4f;
+  --thai-lotus-shadow: #c2185b;
+  --thai-lotus-tint: #fce4ec;
+}
+
+/* ==========================================================================
+   1. Base Container & Layout
+   ========================================================================== */
+#page .cree-form-container,
+body .cree-form-container {
+  max-width: 750px;
+  margin: 30px auto;
+  background: #ffffff;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.cree-form-container h1 {
+  font-size: 26px;
+  color: var(--cree-primary);
+  margin-bottom: 25px;
+  text-align: center;
+  border-bottom: 3px solid var(--cree-bg-light);
+  padding-bottom: 15px;
+}
+
+.cree-form-step {
+  display: none;
+}
+.cree-form-step.active-step {
+  display: block;
+}
+
+.cree-loading-overlay {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 10;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  border-radius: 8px;
+}
+
+.cree-loading-spinner {
+  border: 4px solid var(--cree-bg-light);
+  border-top: 4px solid var(--thai-sapphire);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: cree-spin 1s linear infinite;
+}
+
+@keyframes cree-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==========================================================================
+   2. Form Inputs, Spacing & Validation
+   ========================================================================== */
+.cree-form-container form input[type="text"],
+.cree-form-container form input[type="date"],
+.cree-form-container form input[type="tel"],
+.cree-form-container form input[type="email"],
+.cree-form-container form textarea,
+.cree-form-container form select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--cree-border);
+  border-radius: 4px;
+  font-size: 15px;
+  color: var(--cree-text);
+  box-sizing: border-box;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.cree-form-container form input:focus,
+.cree-form-container form textarea:focus,
+.cree-form-container form select:focus {
+  border-color: var(--thai-sapphire);
+  box-shadow: 0 0 0 2px var(--thai-sapphire-tint);
+  outline: none;
+}
+
+.cree-form-container form .cree-invalid-field {
+  border-color: var(--thai-lotus);
+  box-shadow: 0 0 0 2px var(--thai-lotus-tint);
+}
+
+.cree-form-container .form-group,
+.cree-form-container .full-width-textarea {
+  margin-bottom: 24px;
+}
+
+.cree-form-container .form-row {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.cree-form-container .form-row .form-group {
+  margin-bottom: 0;
+}
+.cree-form-container .cree-form-step > .form-group:last-of-type,
+.cree-form-container .cree-form-step > .form-row:last-of-type,
+.cree-form-container .cree-form-step > .full-width-textarea:last-of-type {
+  margin-bottom: 0;
+}
+
+/* Custom Radio Buttons Accessibility & Styling */
+.box-group input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.box-group .box-button {
+  flex: 1;
+  text-align: center;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--cree-bg-light);
+  transition: all 0.2s;
+}
+
+.box-group input[type="radio"]:checked + .box-button {
+  background: var(--thai-sapphire);
+  color: white;
+  border-color: var(--thai-sapphire-shadow);
+}
+
+.box-group input[type="radio"]:focus-visible + .box-button {
+  outline: 2px solid var(--thai-sapphire);
+  outline-offset: 2px;
+}
+
+.substance-grid .substance-comparison-row {
+  padding: 15px 0;
+  border-bottom: 1px solid var(--cree-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.substance-grid .box-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 !important;
+}
+
+.substance-grid .box-group small {
+  flex: 0 0 85px;
+  font-weight: 600;
+  color: var(--cree-text);
+  font-size: 13px;
+}
+
+.substance-grid .box-button {
+  flex: 1 1 0;
+  min-width: 70px;
+  text-align: center;
+  padding: 8px 10px;
+  margin: 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--cree-bg-light);
+  font-size: 13.5px;
+  transition: all 0.2s ease;
+}
+
+.substance-grid input[type="radio"]:checked + .box-button {
+  background: var(--thai-sapphire);
+  color: #ffffff;
+  border-color: var(--thai-sapphire-shadow);
+  box-shadow: 0 2px 4px var(--thai-sapphire-tint);
+}
+
+/* ==========================================================================
+   3. Thai UI: 3D Pill Buttons
+   ========================================================================== */
+.cree-form-container .submit-btn-container {
+  display: flex;
+  align-items: center;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--cree-border);
+  width: 100%;
+  gap: 15px;
+}
+
+/* Base Pill Button Architecture */
+.thai-btn,
+.cree-form-container .submit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 32px;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  border-radius: 99px; /* Replicates fully rounded pill edges */
+  cursor: pointer;
+  transition:
+    transform 0.1s,
+    box-shadow 0.1s;
+  user-select: none;
+  outline: none;
+  border: none;
+}
+
+/* Push-down animation */
+.thai-btn:active,
+.cree-form-container .submit-btn:active {
+  transform: translateY(6px);
+}
+
+/* Primary Action (Next / Submit): Thai Sapphire */
+.cree-form-container .submit-btn.cree-next-step,
+.cree-form-container button[type="submit"].submit-btn,
+.thai-btn-sapphire {
+  background-color: var(--thai-sapphire);
+  color: var(--thai-sapphire-dark);
+  box-shadow: 0 6px 0 var(--thai-sapphire-shadow); /* Solid 3D shadow depth */
+}
+.cree-form-container .submit-btn.cree-next-step:active,
+.cree-form-container button[type="submit"].submit-btn:active,
+.thai-btn-sapphire:active {
+  box-shadow: 0 0px 0 var(--thai-sapphire-shadow);
+}
+
+/* Secondary Action (Back): Neutral Gray Variant */
+.cree-form-container .submit-btn.cree-prev-step {
+  background-color: #e5e7eb;
+  color: #4b5563;
+  box-shadow: 0 6px 0 #d1d5db;
+}
+.cree-form-container .submit-btn.cree-prev-step:active {
+  box-shadow: 0 0px 0 #d1d5db;
+}
+
+/* Standalone Variant: Neon Emerald with Outer Ring */
+.thai-btn-emerald {
+  background-color: var(--thai-emerald);
+  color: var(--thai-emerald-dark);
+  border: 4px solid var(--thai-emerald-ring); /* Mimics contrasting outer ring */
+  box-shadow: 0 6px 0 var(--thai-emerald-ring-shadow); /* Shadow applied to ring */
+}
+.thai-btn-emerald:active {
+  box-shadow: 0 0px 0 var(--thai-emerald-ring-shadow);
+}
+
+/* Standalone Variant: Thai Saffron */
+.thai-btn-saffron {
+  background-color: var(--thai-saffron);
+  color: var(--thai-saffron-dark);
+  box-shadow: 0 6px 0 var(--thai-saffron-shadow);
+}
+.thai-btn-saffron:active {
+  box-shadow: 0 0px 0 var(--thai-saffron-shadow);
+}
+
+/* Standalone Variant: Thai Lotus (Red/Pink) */
+.thai-btn-lotus {
+  background-color: var(--thai-lotus);
+  color: #fff;
+  box-shadow: 0 6px 0 var(--thai-lotus-shadow);
+}
+.thai-btn-lotus:active {
+  box-shadow: 0 0px 0 var(--thai-lotus-shadow);
+}
+
+@media (max-width: 600px) {
+  .cree-form-container .submit-btn-container {
+    flex-direction: column-reverse;
+  }
+  .cree-form-container .submit-btn {
+    width: 100%;
+  }
+}
+
+/* ==========================================================================
+   4. Portal Enhancements (Tabs, Badges, Cards, Progress Bars)
+   ========================================================================== */
+
+/* Navigation Tabs */
+.cree-prof-tab {
+  background: transparent;
+  color: #4b5563;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 10px 16px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.cree-prof-tab:hover {
+  color: var(--thai-sapphire);
+  background: var(--thai-emerald-tint);
+}
+.cree-prof-tab.active {
+  color: var(--thai-sapphire-dark);
+  border-bottom: 3px solid var(--thai-sapphire);
+  background: var(--thai-sapphire-tint);
+}
+
+/* Status Badges */
+.thai-badge {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.thai-badge-completed {
+  background: var(--thai-emerald-tint);
+  color: var(--thai-emerald-dark);
+  border: 1px solid var(--thai-emerald);
+}
+.thai-badge-scheduled {
+  background: var(--thai-sapphire-tint);
+  color: var(--thai-sapphire-dark);
+  border: 1px solid var(--thai-sapphire);
+}
+.thai-badge-pending {
+  background: var(--thai-saffron-tint);
+  color: var(--thai-saffron-shadow);
+  border: 1px solid var(--thai-saffron);
+}
+.thai-badge-cancelled {
+  background: var(--thai-lotus-tint);
+  color: var(--thai-lotus-dark);
+  border: 1px solid var(--thai-lotus);
+}
+
+/* Treatment Goal Progress Bar */
+.cree-progress-bar-bg {
+  flex-grow: 1;
+  background: #e5e7eb;
+  border-radius: 99px;
+  height: 10px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+.cree-progress-bar-fill {
+  background: linear-gradient(90deg, var(--thai-sapphire), var(--thai-emerald));
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+
+/* Portal Data Cards */
+.cree-card-intake {
+  border-left: 5px solid var(--thai-saffron) !important;
+}
+.cree-card-note {
+  border-left: 5px solid var(--thai-sapphire) !important;
+}
+.cree-card-goal {
+  border-left: 5px solid var(--thai-emerald) !important;
+}

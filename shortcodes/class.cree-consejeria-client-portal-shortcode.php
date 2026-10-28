@@ -154,6 +154,32 @@ class CREE_Consejeria_Client_Portal {
                 </div>
             </div>
 
+            <!-- V5.0 MY TREATMENT PLAN SECTION -->
+            <div style="background: #fff; padding: 25px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 30px;">
+                <h3 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">🎯 My Treatment Plan</h3>
+                <div id="cree-client-visible-plans-container">
+                    <p style="color: #6b7280; font-weight: bold;">Loading your active plans...</p>
+                </div>
+            </div>
+
+            <script>
+            // Fetch visible plans when the portal loads
+            jQuery(document).ready(function() {
+                if (typeof CREE_INTAKE_FORM !== 'undefined') {
+                    jQuery.post(CREE_INTAKE_FORM.ajax_url, {
+                        action: 'cree_get_client_visible_plans',
+                        nonce: CREE_INTAKE_FORM.nonce
+                    }, function(res) {
+                        if (res && res.success) {
+                            jQuery('#cree-client-visible-plans-container').html(res.data.html);
+                        } else {
+                            jQuery('#cree-client-visible-plans-container').html('<p style="color:red;">Error loading plans.</p>');
+                        }
+                    });
+                }
+            });
+            </script>
+
         </div>
         <script>
             // Listen for date selection

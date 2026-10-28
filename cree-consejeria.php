@@ -4,7 +4,7 @@
 * Plugin Name: CREE Consejeria CFM
 * Plugin URI: https://www.wordpress.org/cree-consejeria
 * Description: Sistema de Consejería y Formulario de Intake Encryptado
-* Version: 4.0.3
+* Version: 5.0.0
 * Requires at least: 5.6
 * Requires PHP: 7.0
 * Author: Rafael Ramírez Flores
@@ -101,13 +101,29 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             add_action( 'wp_ajax_cree_get_available_slots', array( $this, 'ajax_get_available_slots' ) );
             add_action( 'wp_ajax_cree_submit_appointment_request', array( $this, 'ajax_submit_appointment_request' ) );
 
+            add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
+            add_action( 'wp_ajax_cree_load_emr_template', array( $this, 'ajax_load_emr_template' ) );
+            add_action( 'wp_ajax_cree_save_emr_plan', array( $this, 'ajax_save_emr_plan' ) );
+            add_action( 'wp_ajax_cree_load_client_plans', array( $this, 'ajax_load_client_plans' ) );
+
+            add_action( 'wp_ajax_cree_toggle_plan_visibility', array( $this, 'ajax_toggle_plan_visibility' ) );
+
+            add_action( 'wp_ajax_cree_get_client_visible_plans', array( $this, 'ajax_get_client_visible_plans' ) );
+
+            add_action( 'cree_daily_appointment_reminders', array( $this, 'cron_send_appointment_reminders' ) );
+            if ( ! wp_next_scheduled( 'cree_daily_appointment_reminders' ) ) {
+                wp_schedule_event( time(), 'hourly', 'cree_daily_appointment_reminders' );
+            }
+
+            add_action( 'wp_ajax_cree_delete_emr_plan', array( $this, 'ajax_delete_emr_plan' ) );
+
             add_action( 'plugins_loaded', array( $this, 'check_plugin_version' ) );
         }
 
         public function define_constants() {
             define( 'CREE_CONSEJERIA_CFM_PATH', plugin_dir_path( __FILE__ ) );
             define( 'CREE_CONSEJERIA_CFM_URL', plugin_dir_url( __FILE__ ) );
-            define( 'CREE_CONSEJERIA_CFM_VERSION', '4.0.3' );
+            define( 'CREE_CONSEJERIA_CFM_VERSION', '5.0.0' );
         }
 
         /**
@@ -125,6 +141,8 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             $notes_table_name = $wpdb->prefix . 'cree_consejeria_session_notes';
             $appointments_table = $wpdb->prefix . 'cree_consejeria_appointments';
             $goals_table        = $wpdb->prefix . 'cree_consejeria_treatment_goals';
+            $plan_templates_table = $wpdb->prefix . 'cree_consejeria_plan_templates';
+            $client_plans_table = $wpdb->prefix . 'cree_consejeria_client_plans';
             $charset_collate  = $wpdb->get_charset_collate();
 
             $cree_consejeria_cfm_db_version = get_option( 'cree_consejeria_cfm_db_version' );
@@ -219,6 +237,39 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                 ) $charset_collate;";
                 require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
                 dbDelta( $sql_goals );
+            }
+
+            // 8. v5.0 Treatment Plan Templates (Unencrypted CSV Data)
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $plan_templates_table ) ) !== $plan_templates_table ) {
+                $sql_templates = "CREATE TABLE $plan_templates_table (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    category varchar(150) NOT NULL, /* e.g., Anger Control Problems */
+                    section varchar(100) NOT NULL,  /* e.g., Behavioral Definitions, Long-Term Goals */
+                    item_text text NOT NULL,        /* The specific criteria or goal */
+                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY category (category),
+                    KEY section (section)
+                ) $charset_collate;";
+                dbDelta( $sql_templates );
+            }
+
+            // 9. v5.0 Client Encrypted Treatment Plans
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $client_plans_table ) ) !== $client_plans_table ) {
+                $sql_client_plans = "CREATE TABLE $client_plans_table (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    client_id bigint(20) unsigned NOT NULL,
+                    therapist_id bigint(20) unsigned NOT NULL,
+                    primary_category varchar(150) NOT NULL,
+                    plan_data_encrypted blob NOT NULL, /* Stores the JSON array of all checked items */
+                    is_visible_to_client tinyint(1) DEFAULT 0,
+                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                    updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY client_id (client_id),
+                    KEY therapist_id (therapist_id)
+                ) $charset_collate;";
+                dbDelta( $sql_client_plans );
             }
 
             if ( empty( $cree_consejeria_cfm_db_version ) || version_compare( $cree_consejeria_cfm_db_version, '1.1.0', '<' ) ) {
@@ -485,7 +536,9 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <div class="cree-note-date-text" style="font-size:12px; font-weight:bold; color:#374151;">📅 Session Date: <?php echo esc_html( $formatted_date ); ?></div>
                         <div style="display: flex; gap: 8px;">
+                            <!-- Print button -->
                             <button type="button" onclick="creePrintNote(this)" style="background:#6b7280; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">🖨️ Print</button>
+                            <!-- Edit button -->
                             <button type="button" class="cree-edit-note-btn" style="background:#3b82f6; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">✏️ Edit</button>
                         </div>
                     </div>
@@ -1542,6 +1595,41 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                 ) $charset_collate;";
                 dbDelta( $sql_requests );
             }
+
+            // 8. v5.0 Treatment Plan Templates (Unencrypted CSV Data)
+            $plan_templates_table = $wpdb->prefix . 'cree_consejeria_plan_templates';
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $plan_templates_table ) ) !== $plan_templates_table ) {
+                $sql_templates = "CREATE TABLE $plan_templates_table (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    category varchar(150) NOT NULL, /* e.g., Anger Control Problems */
+                    section varchar(100) NOT NULL,  /* e.g., Behavioral Definitions, Long-Term Goals */
+                    item_text text NOT NULL,        /* The specific criteria or goal */
+                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY category (category),
+                    KEY section (section)
+                ) $charset_collate;";
+                dbDelta( $sql_templates );
+            }
+
+            // 9. v5.0 Client Encrypted Treatment Plans
+            $client_plans_table = $wpdb->prefix . 'cree_consejeria_client_plans';
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $client_plans_table ) ) !== $client_plans_table ) {
+                $sql_client_plans = "CREATE TABLE $client_plans_table (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    client_id bigint(20) unsigned NOT NULL,
+                    therapist_id bigint(20) unsigned NOT NULL,
+                    primary_category varchar(150) NOT NULL,
+                    plan_data_encrypted blob NOT NULL, /* Stores the JSON array of all checked items */
+                    is_visible_to_client tinyint(1) DEFAULT 0,
+                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                    updated_at timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY client_id (client_id),
+                    KEY therapist_id (therapist_id)
+                ) $charset_collate;";
+                dbDelta( $sql_client_plans );
+            }
         }
 
         public function check_plugin_version() {
@@ -1780,10 +1868,18 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             </div>
 
             <!-- Sub-Tabs Navigation -->
+            <!-- <div style="border-bottom: 2px solid #e5e7eb; margin-bottom: 20px; display: flex; gap: 10px;">
+                <button class="cree-prof-tab active" onclick="creeSwitchProfileTab(event, 'prof-forms')">📋 Intake & Assigned Forms</button>
+                <button class="cree-prof-tab" onclick="creeSwitchProfileTab(event, 'prof-notes')">📝 Session Notes</button>
+                <button class="cree-prof-tab" onclick="creeSwitchProfileTab(event, 'prof-appointments')">📅 Appointments</button>
+            </div> -->
+
+            <!-- Sub-Tabs Navigation -->
             <div style="border-bottom: 2px solid #e5e7eb; margin-bottom: 20px; display: flex; gap: 10px;">
                 <button class="cree-prof-tab active" onclick="creeSwitchProfileTab(event, 'prof-forms')">📋 Intake & Assigned Forms</button>
                 <button class="cree-prof-tab" onclick="creeSwitchProfileTab(event, 'prof-notes')">📝 Session Notes</button>
                 <button class="cree-prof-tab" onclick="creeSwitchProfileTab(event, 'prof-appointments')">📅 Appointments</button>
+                <button class="cree-prof-tab" onclick="creeSwitchProfileTab(event, 'prof-treatment-plan')">🎯 Treatment Plan</button>
             </div>
 
             <!-- TAB 1: FORMS -->
@@ -1855,9 +1951,10 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                                             <td style="padding:10px;">
                                                 <?php if ( $is_done ) : ?>
                                                     <button type="button" onclick="creeViewClientFormDetails(<?php echo intval( $completed_record->id ); ?>)" style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">👁️ View</button>
-                                                    <button type="button" onclick="creeExportPDF(<?php echo intval( $completed_record->id ); ?>)" style="background:#10b981; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">📄 PDF / Print</button>
+                                                    <button type="button" onclick="creeExportPDF(<?php echo intval( $completed_record->id ); ?>)" style="background:#10b981; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">📄 Print</button>
                                                 <?php else : ?>
-                                                    <button type="button" onclick="creeUnassignForm(<?php echo intval( $af->id ); ?>)" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">🚫 Unassign</button>
+                                                    <!-- <button type="button" onclick="creeUnassignForm(<?php echo intval( $af->id ); ?>)" style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">🚫 Unassign</button> -->
+                                                    <button type="button" onclick="creeUnassignForm(<?php echo intval( $af->id ); ?>)" style="background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">🚫 Unassign</button>
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
@@ -1986,13 +2083,15 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                                 $js_date = date('Y-m-d\TH:i', strtotime($a->appointment_date));
                             ?>
                                 <tr>
-                                    <td style="padding:8px; font-weight:bold;"><?php echo esc_html( wp_date( 'F j, Y \a\t g:i a', strtotime( $a->appointment_date ) ) ); ?></td>
+                                    <!-- <td style="padding:8px; font-weight:bold;"><?php echo esc_html( wp_date( 'F j, Y \a\t g:i a', strtotime( $a->appointment_date ) ) ); ?></td> -->
+                                    <td style="padding:8px; font-weight:bold;"><?php echo esc_html( wp_date( 'F j, Y \a\t g:i a T', strtotime( $a->appointment_date ) ) ); ?></td>
                                     <td style="padding:8px;"><?php echo intval( $a->duration_minutes ); ?>m</td>
                                     <td style="padding:8px;"><?php echo esc_html( $a->decrypted_notes ? $a->decrypted_notes : '-' ); ?></td>
                                     <td style="padding:8px;">
                                         <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'completed')" style="background:#10b981; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">✔️ Complete</button>
                                         <button type="button" onclick="creeEditAppointment(<?php echo intval( $a->id ); ?>, '<?php echo esc_js($js_date); ?>', <?php echo intval($a->duration_minutes); ?>, '<?php echo esc_js($a->decrypted_notes); ?>')" style="background:#3b82f6; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">✏️ Edit</button>
-                                        <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'cancelled')" style="background:#ef4444; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">🚫 Cancel</button>
+                                        <!-- <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'cancelled')" style="background:#ef4444; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">🚫 Cancel</button> -->
+                                         <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'cancelled')" style="background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">🚫 Cancel</button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -2029,6 +2128,43 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                     </table>
                 <?php endif; ?>
             </div>
+            
+            <!-- TAB 4: TREATMENT PLAN (EMR) -->
+            <div id="prof-treatment-plan" class="cree-prof-content" style="display: none;">
+                <div style="background: #f9fafb; padding: 20px; border-radius: 6px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                    <h4 style="margin-top:0; color: #1e3a8a;">Create / Update Treatment Plan</h4>
+                    <p style="font-size: 13px; color: #4b5563; margin-bottom: 15px;">Select a psychological issue below to load the EMR templates. Check the boxes that apply to this client to build their encrypted plan.</p>
+                    
+                    <?php
+                    // Fetch unique categories from the templates table
+                    $templates_table = $wpdb->prefix . 'cree_consejeria_plan_templates';
+                    $categories = $wpdb->get_col( "SELECT DISTINCT category FROM {$templates_table} ORDER BY category ASC" );
+                    ?>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">Primary Psychological Issue:</label>
+                        <select id="cree-emr-category-select" style="width: 100%; max-width: 400px; padding: 8px; border-radius: 4px; border: 1px solid #d1d5db;" onchange="creeLoadEMRTemplate(this.value, <?php echo intval($client_id); ?>)">
+                            <option value="">-- Select Category --</option>
+                            <?php foreach ( $categories as $cat ) : ?>
+                                <option value="<?php echo esc_attr( $cat ); ?>"><?php echo esc_html( $cat ); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- The dynamic workspace where checkboxes will load -->
+                    <div id="cree-emr-workspace-container">
+                        <div style="padding: 30px; text-align: center; border: 2px dashed #d1d5db; border-radius: 6px; color: #6b7280; font-style: italic;">
+                            Please select a category above to load the treatment plan criteria.
+                        </div>
+                    </div>
+                </div>
+                
+                <h4 style="color: #047857; margin-bottom: 10px; border-top: 1px solid #e5e7eb; padding-top: 15px;">Encrypted Treatment Plan History</h4>
+                <div id="cree-client-plans-history">
+                    <p style="font-style:italic; color:#6b7280;">Loading saved plans...</p>
+                </div>
+            </div>
+
             <?php
             wp_send_json_success( array( 'html' => ob_get_clean() ) );
         }
@@ -2309,7 +2445,8 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                                     <td style="padding:8px;"><?php echo intval( $req->duration_minutes ); ?>m</td>
                                     <td style="padding:8px;">
                                         <button type="button" onclick="creeHandleRequest(<?php echo intval( $req->id ); ?>, 'approve')" style="background:#10b981; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer;">✔️ Approve</button>
-                                        <button type="button" onclick="creeHandleRequest(<?php echo intval( $req->id ); ?>, 'deny')" style="background:#ef4444; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer;">🚫 Deny</button>
+                                        <!-- <button type="button" onclick="creeHandleRequest(<?php echo intval( $req->id ); ?>, 'deny')" style="background:#ef4444; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer;">🚫 Deny</button> -->
+                                        <button type="button" onclick="creeHandleRequest(<?php echo intval( $req->id ); ?>, 'deny')" style="background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">🚫 Deny</button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -2495,6 +2632,10 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             $date = isset( $_POST['date'] ) ? sanitize_text_field( $_POST['date'] ) : '';
             $therapist_id = isset( $_POST['therapist_id'] ) ? intval( $_POST['therapist_id'] ) : 1; 
 
+            // Dynamically find the primary therapist (admin) ID for solo practices
+            // $therapists = get_users( array( 'role__in' => array( 'administrator' ), 'number' => 1 ) );
+            // $therapist_id = !empty( $therapists ) ? $therapists[0]->ID : 1;
+
             if ( empty( $date ) ) wp_send_json_error( array( 'message' => 'Date is required.' ) );
 
             global $wpdb;
@@ -2579,7 +2720,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
         /**
          * AJAX Handler: Submit Client Request
          */
-        public function ajax_submit_appointment_request() {
+        public function ajax_submit_appointment_request_deprecated() {
             // check_ajax_referer( 'cree_secure_note_nonce', 'security' );
             // if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
 
@@ -2608,6 +2749,723 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             );
 
             wp_send_json_success( array( 'message' => 'Request sent successfully. You will be notified once the therapist reviews it.' ) );
+        }
+
+        /**
+         * AJAX Handler: Submit Client Request
+         */
+        public function ajax_submit_appointment_request() {
+            if ( isset( $_POST['security'] ) ) { check_ajax_referer( 'cree_secure_note_nonce', 'security' ); } 
+            elseif ( isset( $_POST['nonce'] ) ) { check_ajax_referer( 'cree_secure_form_submission', 'nonce' ); } 
+            else { wp_send_json_error( array( 'message' => __( 'Security verification failed.', 'cree-consejeria' ) ) ); }
+
+            if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            global $wpdb;
+            $client_id = get_current_user_id();
+            
+            // Fix 1: Ensure therapist ID defaults correctly even if an empty string was passed
+            $therapist_id = !empty( $_POST['therapist_id'] ) ? intval( $_POST['therapist_id'] ) : 1;
+
+            // Dynamically find the primary therapist (admin) ID for solo practices
+            // $therapists = get_users( array( 'role__in' => array( 'administrator' ), 'number' => 1 ) );
+            // $therapist_id = !empty( $therapists ) ? $therapists[0]->ID : 1;
+            
+            $requested_datetime = sanitize_text_field( $_POST['requested_datetime'] );
+
+            if ( empty($requested_datetime) ) wp_send_json_error( array( 'message' => 'Datetime required.' ) );
+
+            // Fix 2: Convert HTML5 datetime format to MySQL format (Remove the "T")
+            $requested_datetime = str_replace('T', ' ', $requested_datetime);
+            if ( strlen($requested_datetime) == 16 ) {
+                $requested_datetime .= ':00';
+            }
+
+            // Fix 3: Check if the database actually accepted the insert
+            $inserted = $wpdb->insert(
+                $wpdb->prefix . 'cree_consejeria_appointment_requests',
+                array(
+                    'client_id'          => $client_id,
+                    'therapist_id'       => $therapist_id,
+                    'requested_datetime' => $requested_datetime,
+                    'duration_minutes'   => 50,
+                    'status'             => 'pending'
+                )
+            );
+
+            if ( $inserted ) {
+                wp_send_json_success( array( 'message' => 'Request sent successfully. You will be notified once the therapist reviews it.' ) );
+            } else {
+                wp_send_json_error( array( 'message' => 'Database error: Could not save the appointment request.' ) );
+            }
+        }
+
+        /**
+         * Register the EMR Admin Menu
+         */
+        public function register_admin_menu() {
+            add_menu_page(
+                'CREE EMR Settings',
+                'CREE EMR',
+                'manage_options',
+                'cree-emr-settings',
+                array( $this, 'admin_emr_settings_page' ),
+                'dashicons-clipboard',
+                55
+            );
+        }
+
+        /**
+         * The EMR Settings Page & CSV Uploader
+         */
+        public function admin_emr_settings_page() {
+            if ( ! current_user_can( 'manage_options' ) ) return;
+
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_consejeria_plan_templates';
+
+            // Handle the CSV Upload
+            if ( isset( $_POST['cree_import_csv'] ) && isset( $_FILES['csv_file'] ) ) {
+                check_admin_referer( 'cree_import_csv_nonce' );
+
+                $file = $_FILES['csv_file'];
+                if ( $file['error'] === 0 && ( $file['type'] === 'text/csv' || end(explode('.', $file['name'])) === 'csv' ) ) {
+                    
+                    if ( isset( $_POST['clear_existing'] ) && $_POST['clear_existing'] == '1' ) {
+                        $wpdb->query("TRUNCATE TABLE {$table_name}");
+                    }
+
+                    $handle = fopen( $file['tmp_name'], 'r' );
+                    $row_count = 0;
+                    $inserted = 0;
+                    
+                    if ( $handle !== FALSE ) {
+                        while ( ( $data = fgetcsv( $handle, 10000, "," ) ) !== FALSE ) {
+                            $row_count++;
+                            
+                            // Skip the first row if it is a header
+                            if ( $row_count === 1 && stripos( $data[0], 'category' ) !== false ) continue;
+
+                            if ( count( $data ) >= 3 ) {
+                                $category  = sanitize_text_field( trim( $data[0] ) );
+                                $section   = sanitize_text_field( trim( $data[1] ) );
+                                $item_text = sanitize_textarea_field( trim( $data[2] ) );
+
+                                if ( ! empty( $category ) && ! empty( $section ) && ! empty( $item_text ) ) {
+                                    $wpdb->insert(
+                                        $table_name,
+                                        array(
+                                            'category'  => $category,
+                                            'section'   => $section,
+                                            'item_text' => $item_text
+                                        )
+                                    );
+                                    $inserted++;
+                                }
+                            }
+                        }
+                        fclose( $handle );
+                        echo '<div class="notice notice-success is-dismissible"><p>✔️ Successfully imported <strong>' . $inserted . '</strong> treatment plan items!</p></div>';
+                    } else {
+                        echo '<div class="notice notice-error is-dismissible"><p>❌ Failed to open the uploaded file.</p></div>';
+                    }
+                } else {
+                    echo '<div class="notice notice-error is-dismissible"><p>❌ Please upload a valid CSV file.</p></div>';
+                }
+            }
+
+            // Count existing items
+            $total_items = $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
+            ?>
+            <div class="wrap">
+                <h1 style="color: #01579B;">CREE EMR — Treatment Plan Templates</h1>
+                <p>Import your psychological issues, behavioral definitions, and goals from a CSV file. The CSV must have exactly 3 columns: <strong>Category</strong>, <strong>Section</strong>, and <strong>Item Text</strong>.</p>
+                
+                <div style="background:#fff; border:1px solid #ccd0d4; padding:20px; max-width: 600px; margin-top:20px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <h3 style="margin-top:0;">Upload CSV Data</h3>
+                    <form method="post" enctype="multipart/form-data">
+                        <?php wp_nonce_field( 'cree_import_csv_nonce' ); ?>
+                        <input type="hidden" name="cree_import_csv" value="1">
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: bold; display:block; margin-bottom: 10px;">Select CSV File:</label>
+                            <input type="file" name="csv_file" accept=".csv" required style="border: 1px solid #ccc; padding: 10px; width: 100%; border-radius: 4px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 20px; background: #fff8e1; padding: 10px; border-left: 4px solid #ffca28;">
+                            <label style="font-size: 13px;">
+                                <input type="checkbox" name="clear_existing" value="1"> 
+                                <strong>Clear existing templates before importing</strong><br>
+                                <span style="color: #666; margin-left: 24px;">Warning: This will delete all currently saved dropdown items.</span>
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="button button-primary" style="background: #03A9F4; border-color: #0288D1; text-shadow: none;">Upload & Import CSV</button>
+                    </form>
+                </div>
+
+                <div style="margin-top:20px; padding: 15px; background: #e1f5fe; border-left: 4px solid #03A9F4; max-width: 600px; border-radius: 4px;">
+                    <p style="margin:0; font-size: 14px;"><strong>Total Template Items in Database:</strong> <?php echo intval($total_items); ?></p>
+                </div>
+            </div>
+            <?php
+        }
+
+        /**
+         * AJAX Handler: Load the EMR Checkbox Workspace for a Specific Category
+         */
+        public function ajax_load_emr_template_deprecated() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            
+            if ( ! current_user_can( 'edit_posts' ) ) {
+                wp_send_json_error( array( 'message' => 'Unauthorized access.' ) );
+            }
+
+            global $wpdb;
+            $category = isset( $_POST['category'] ) ? sanitize_text_field( $_POST['category'] ) : '';
+            $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+
+            if ( empty( $category ) ) {
+                wp_send_json_error( array( 'message' => 'No category specified.' ) );
+            }
+
+            $table_name = $wpdb->prefix . 'cree_consejeria_plan_templates';
+            
+            // Fetch all items for this category
+            $items = $wpdb->get_results( $wpdb->prepare( 
+                "SELECT id, section, item_text FROM {$table_name} WHERE category = %s ORDER BY id ASC", 
+                $category 
+            ) );
+
+            if ( empty( $items ) ) {
+                wp_send_json_error( array( 'html' => '<p style="color:red;">No template data found for this category.</p>' ) );
+            }
+
+            // Group items by Section
+            $grouped_items = array();
+            foreach ( $items as $item ) {
+                $grouped_items[ $item->section ][] = $item;
+            }
+
+            ob_start();
+            ?>
+            <form id="cree-emr-save-plan-form">
+                <input type="hidden" name="client_id" value="<?php echo intval( $client_id ); ?>">
+                <input type="hidden" name="primary_category" value="<?php echo esc_attr( $category ); ?>">
+                
+                <div style="background: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <h3 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e1f5fe; padding-bottom: 10px;">
+                        Treatment Plan Builder: <?php echo esc_html( $category ); ?>
+                    </h3>
+                    
+                    <?php foreach ( $grouped_items as $section_name => $section_items ) : ?>
+                        <div class="emr-section-block" style="margin-top: 25px;">
+                            <h4 style="color: #01579B; margin-bottom: 15px; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;"><?php echo esc_html( $section_name ); ?></h4>
+                            
+                            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                                <?php foreach ( $section_items as $item ) : ?>
+                                    <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: #374151; cursor: pointer; padding: 8px; background: #f9fafb; border-radius: 4px; border: 1px solid #f3f4f6; transition: background 0.2s;">
+                                        <input type="checkbox" name="emr_items[<?php echo esc_attr( $section_name ); ?>][]" value="<?php echo esc_attr( $item->item_text ); ?>" style="margin-top: 3px;">
+                                        <span style="line-height: 1.4;"><?php echo esc_html( $item->item_text ); ?></span>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                            
+                            <!-- Custom Free-Text Addition for this Section -->
+                            <div style="margin-top: 10px; padding-left: 28px;">
+                                <input type="text" name="emr_custom[<?php echo esc_attr( $section_name ); ?>]" placeholder="+ Add a custom item for <?php echo esc_attr( $section_name ); ?>..." style="width: 100%; padding: 8px; font-size: 13px; border: 1px dashed #d1d5db; border-radius: 4px; background: #fff;">
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                    
+                    <div style="margin-top: 35px; padding-top: 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                        <label style="font-size: 13px; font-weight: bold; color: #4b5563; display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="is_visible_to_client" value="1"> 
+                            Publish to Client Portal
+                        </label>
+                        <button type="button" id="cree-save-emr-plan-btn" class="thai-btn-sapphire" style="padding: 12px 24px; font-size: 14px;">💾 Encrypt & Save Plan</button>
+                    </div>
+                </div>
+            </form>
+            <?php
+            wp_send_json_success( array( 'html' => ob_get_clean() ) );
+        }
+
+        /**
+         * AJAX Handler: Load the EMR Checkbox Workspace (Supports New and Editing)
+         */
+        public function ajax_load_emr_template() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized access.' ) );
+
+            global $wpdb;
+            $category = isset( $_POST['category'] ) ? sanitize_text_field( $_POST['category'] ) : '';
+            $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+            $plan_id = isset( $_POST['plan_id'] ) ? intval( $_POST['plan_id'] ) : 0;
+
+            if ( empty( $category ) ) wp_send_json_error( array( 'message' => 'No category specified.' ) );
+
+            $saved_plan_data = array();
+            $is_visible = 0;
+
+            // If editing, fetch the existing plan data
+            if ( $plan_id > 0 ) {
+                $plan_table = $wpdb->prefix . 'cree_consejeria_client_plans';
+                $encryption_key = $this->get_encryption_key();
+                $saved_record = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT is_visible_to_client, CAST(AES_DECRYPT(plan_data_encrypted, %s) AS CHAR) AS decrypted_data FROM {$plan_table} WHERE id = %d",
+                    $encryption_key, $plan_id
+                ) );
+                if ( $saved_record ) {
+                    $saved_plan_data = json_decode( $saved_record->decrypted_data, true );
+                    $is_visible = $saved_record->is_visible_to_client;
+                }
+            }
+
+            $table_name = $wpdb->prefix . 'cree_consejeria_plan_templates';
+            $items = $wpdb->get_results( $wpdb->prepare( "SELECT id, section, item_text FROM {$table_name} WHERE category = %s ORDER BY id ASC", $category ) );
+
+            if ( empty( $items ) ) wp_send_json_error( array( 'html' => '<p style="color:red;">No template data found for this category.</p>' ) );
+
+            $grouped_items = array();
+            foreach ( $items as $item ) {
+                $grouped_items[ $item->section ][] = $item;
+            }
+
+            ob_start();
+            ?>
+            <form id="cree-emr-save-plan-form">
+                <input type="hidden" name="client_id" value="<?php echo intval( $client_id ); ?>">
+                <input type="hidden" name="primary_category" value="<?php echo esc_attr( $category ); ?>">
+                <input type="hidden" name="plan_id" value="<?php echo intval( $plan_id ); ?>">
+                
+                <div style="background: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <h3 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e1f5fe; padding-bottom: 10px;">
+                        <?php echo $plan_id > 0 ? 'Editing Plan: ' : 'Treatment Plan Builder: '; ?><?php echo esc_html( $category ); ?>
+                    </h3>
+                    
+                    <?php foreach ( $grouped_items as $section_name => $section_items ) : ?>
+                        <div class="emr-section-block" style="margin-top: 25px;">
+                            <h4 style="color: #01579B; margin-bottom: 15px; text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px;"><?php echo esc_html( $section_name ); ?></h4>
+                            
+                            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                                <?php 
+                                $template_texts = array();
+                                foreach ( $section_items as $item ) : 
+                                    $template_texts[] = $item->item_text;
+                                    $is_checked = ( isset($saved_plan_data[$section_name]) && in_array($item->item_text, $saved_plan_data[$section_name]) ) ? 'checked' : '';
+                                ?>
+                                    <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: #374151; cursor: pointer; padding: 8px; background: #f9fafb; border-radius: 4px; border: 1px solid #f3f4f6; transition: background 0.2s;">
+                                        <input type="checkbox" name="emr_items[<?php echo esc_attr( $section_name ); ?>][]" value="<?php echo esc_attr( $item->item_text ); ?>" style="margin-top: 3px;" <?php echo $is_checked; ?>>
+                                        <span style="line-height: 1.4;"><?php echo esc_html( $item->item_text ); ?></span>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                            
+                            <?php
+                            // Extract any custom typed text that wasn't in the standard CSV list
+                            $custom_text = '';
+                            if ( isset($saved_plan_data[$section_name]) ) {
+                                $custom_items = array_diff($saved_plan_data[$section_name], $template_texts);
+                                if ( ! empty($custom_items) ) {
+                                    $custom_text = implode(' | ', $custom_items);
+                                }
+                            }
+                            ?>
+                            <div style="margin-top: 10px; padding-left: 28px;">
+                                <input type="text" name="emr_custom[<?php echo esc_attr( $section_name ); ?>]" value="<?php echo esc_attr($custom_text); ?>" placeholder="+ Add a custom item for <?php echo esc_attr( $section_name ); ?>..." style="width: 100%; padding: 8px; font-size: 13px; border: 1px dashed #d1d5db; border-radius: 4px; background: #fff;">
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                    
+                    <div style="margin-top: 35px; padding-top: 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                        <label style="font-size: 13px; font-weight: bold; color: #4b5563; display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="is_visible_to_client" value="1" <?php checked( $is_visible, 1 ); ?>> 
+                            Publish to Client Portal
+                        </label>
+                        <button type="button" id="cree-save-emr-plan-btn" class="thai-btn-sapphire" style="padding: 12px 24px; font-size: 14px;">
+                            <?php echo $plan_id > 0 ? '💾 Update & Encrypt Plan' : '💾 Encrypt & Save Plan'; ?>
+                        </button>
+                    </div>
+                </div>
+            </form>
+            <?php
+            wp_send_json_success( array( 'html' => ob_get_clean() ) );
+        }
+
+        /**
+         * AJAX Handler: Save & Encrypt the Treatment Plan
+         */
+        public function ajax_save_emr_plan_deprecated() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+            $primary_category = isset( $_POST['primary_category'] ) ? sanitize_text_field( $_POST['primary_category'] ) : '';
+            $is_visible = isset( $_POST['is_visible_to_client'] ) ? 1 : 0;
+            
+            if ( ! $client_id || empty( $primary_category ) ) {
+                wp_send_json_error( array( 'message' => 'Missing client ID or category.' ) );
+            }
+
+            // 1. Process Checked Items and Custom Text
+            $emr_items  = isset( $_POST['emr_items'] ) && is_array( $_POST['emr_items'] ) ? $_POST['emr_items'] : array();
+            $emr_custom = isset( $_POST['emr_custom'] ) && is_array( $_POST['emr_custom'] ) ? $_POST['emr_custom'] : array();
+            
+            $plan_data = array();
+            
+            // Merge all sections securely
+            $all_sections = array_unique( array_merge( array_keys( $emr_items ), array_keys( $emr_custom ) ) );
+            
+            foreach ( $all_sections as $section ) {
+                $section_clean = sanitize_text_field( $section );
+                $plan_data[$section_clean] = array();
+                
+                // Add checked boxes
+                if ( ! empty( $emr_items[$section] ) && is_array( $emr_items[$section] ) ) {
+                    foreach ( $emr_items[$section] as $item ) {
+                        $plan_data[$section_clean][] = sanitize_text_field( $item );
+                    }
+                }
+                
+                // Add custom typed text
+                if ( ! empty( $emr_custom[$section] ) ) {
+                    $custom_clean = sanitize_text_field( trim( $emr_custom[$section] ) );
+                    if ( ! empty( $custom_clean ) ) {
+                        $plan_data[$section_clean][] = $custom_clean;
+                    }
+                }
+                
+                // Remove empty sections to save database space
+                if ( empty( $plan_data[$section_clean] ) ) {
+                    unset( $plan_data[$section_clean] );
+                }
+            }
+
+            if ( empty( $plan_data ) ) {
+                wp_send_json_error( array( 'message' => 'Cannot save an empty plan. Please check at least one box or add custom text.' ) );
+            }
+
+            // 2. Encrypt and Save
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_consejeria_client_plans';
+            $encryption_key = $this->get_encryption_key();
+            $json_payload = wp_json_encode( $plan_data );
+
+            $inserted = $wpdb->query( $wpdb->prepare(
+                "INSERT INTO {$table_name} (client_id, therapist_id, primary_category, plan_data_encrypted, is_visible_to_client)
+                 VALUES (%d, %d, %s, AES_ENCRYPT(%s, %s), %d)",
+                $client_id, get_current_user_id(), $primary_category, $json_payload, $encryption_key, $is_visible
+            ) );
+
+            // if ( $inserted ) {
+            //     wp_send_json_success();
+            // } else {
+            //     wp_send_json_error( array( 'message' => 'Database encryption/insertion failed.' ) );
+            // }
+
+            if ( $inserted ) {
+                // FEATURE 3: Auto-generate Trackable Goals from Short Term Objectives
+                if ( ! empty( $plan_data['Short Term Objectives'] ) ) {
+                    $goals_table = $wpdb->prefix . 'cree_consejeria_treatment_goals';
+                    foreach ( $plan_data['Short Term Objectives'] as $objective ) {
+                        $wpdb->query( $wpdb->prepare(
+                            "INSERT INTO {$goals_table} (client_id, therapist_id, goal_title, goal_description_encrypted, status, progress_percentage) 
+                             VALUES (%d, %d, %s, AES_ENCRYPT(%s, %s), 'in_progress', 0)",
+                            $client_id, get_current_user_id(), 'Short Term Objective', $objective, $encryption_key
+                        ) );
+                    }
+                }
+                wp_send_json_success();
+            } else {
+                wp_send_json_error( array( 'message' => 'Database encryption/insertion failed.' ) );
+            }
+        }
+
+        /**
+         * AJAX Handler: Save, Update & Encrypt the Treatment Plan
+         */
+        public function ajax_save_emr_plan() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+            $plan_id = isset( $_POST['plan_id'] ) ? intval( $_POST['plan_id'] ) : 0;
+            $primary_category = isset( $_POST['primary_category'] ) ? sanitize_text_field( $_POST['primary_category'] ) : '';
+            $is_visible = isset( $_POST['is_visible_to_client'] ) ? 1 : 0;
+            
+            if ( ! $client_id || empty( $primary_category ) ) {
+                wp_send_json_error( array( 'message' => 'Missing client ID or category.' ) );
+            }
+
+            $emr_items  = isset( $_POST['emr_items'] ) && is_array( $_POST['emr_items'] ) ? $_POST['emr_items'] : array();
+            $emr_custom = isset( $_POST['emr_custom'] ) && is_array( $_POST['emr_custom'] ) ? $_POST['emr_custom'] : array();
+            
+            $plan_data = array();
+            $all_sections = array_unique( array_merge( array_keys( $emr_items ), array_keys( $emr_custom ) ) );
+            
+            foreach ( $all_sections as $section ) {
+                $section_clean = sanitize_text_field( $section );
+                $plan_data[$section_clean] = array();
+                
+                if ( ! empty( $emr_items[$section] ) && is_array( $emr_items[$section] ) ) {
+                    foreach ( $emr_items[$section] as $item ) {
+                        $plan_data[$section_clean][] = sanitize_text_field( $item );
+                    }
+                }
+                
+                if ( ! empty( $emr_custom[$section] ) ) {
+                    $custom_clean = sanitize_text_field( trim( $emr_custom[$section] ) );
+                    if ( ! empty( $custom_clean ) ) {
+                        $plan_data[$section_clean][] = $custom_clean;
+                    }
+                }
+                
+                if ( empty( $plan_data[$section_clean] ) ) {
+                    unset( $plan_data[$section_clean] );
+                }
+            }
+
+            if ( empty( $plan_data ) ) {
+                wp_send_json_error( array( 'message' => 'Cannot save an empty plan. Please check at least one box or add custom text.' ) );
+            }
+
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_consejeria_client_plans';
+            $encryption_key = $this->get_encryption_key();
+            $json_payload = wp_json_encode( $plan_data );
+            $success = false;
+
+            if ( $plan_id > 0 ) {
+                // UPDATE EXISTING PLAN
+                $success = $wpdb->query( $wpdb->prepare(
+                    "UPDATE {$table_name} SET primary_category = %s, plan_data_encrypted = AES_ENCRYPT(%s, %s), is_visible_to_client = %d WHERE id = %d",
+                    $primary_category, $json_payload, $encryption_key, $is_visible, $plan_id
+                ) ) !== false;
+            } else {
+                // INSERT NEW PLAN
+                $success = $wpdb->query( $wpdb->prepare(
+                    "INSERT INTO {$table_name} (client_id, therapist_id, primary_category, plan_data_encrypted, is_visible_to_client)
+                     VALUES (%d, %d, %s, AES_ENCRYPT(%s, %s), %d)",
+                    $client_id, get_current_user_id(), $primary_category, $json_payload, $encryption_key, $is_visible
+                ) );
+
+                // Auto-generate Trackable Goals only on initial creation
+                if ( $success && ! empty( $plan_data['Short Term Objectives'] ) ) {
+                    $goals_table = $wpdb->prefix . 'cree_consejeria_treatment_goals';
+                    foreach ( $plan_data['Short Term Objectives'] as $objective ) {
+                        $wpdb->query( $wpdb->prepare(
+                            "INSERT INTO {$goals_table} (client_id, therapist_id, goal_title, goal_description_encrypted, status, progress_percentage) 
+                             VALUES (%d, %d, %s, AES_ENCRYPT(%s, %s), 'in_progress', 0)",
+                            $client_id, get_current_user_id(), 'Short Term Objective', $objective, $encryption_key
+                        ) );
+                    }
+                }
+            }
+
+            if ( $success ) {
+                wp_send_json_success();
+            } else {
+                wp_send_json_error( array( 'message' => 'Database encryption/insertion failed.' ) );
+            }
+        }
+
+        /**
+         * AJAX Handler: Fetch and Decrypt Client Plans History
+         */
+        public function ajax_load_client_plans() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+            if ( ! $client_id ) wp_send_json_error( array( 'message' => 'No client ID.' ) );
+
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_consejeria_client_plans';
+            $encryption_key = $this->get_encryption_key();
+
+            $plans = $wpdb->get_results( $wpdb->prepare(
+                "SELECT id, primary_category, created_at, is_visible_to_client, CAST(AES_DECRYPT(plan_data_encrypted, %s) AS CHAR) AS decrypted_data 
+                 FROM {$table_name} WHERE client_id = %d ORDER BY created_at DESC",
+                $encryption_key, $client_id
+            ) );
+
+            ob_start();
+            if ( empty( $plans ) ) {
+                echo '<p style="font-style:italic; color:#6b7280;">No treatment plans have been created for this client yet.</p>';
+            } else {
+                foreach ( $plans as $plan ) {
+                    $plan_data = json_decode( $plan->decrypted_data, true );
+                    if ( ! is_array( $plan_data ) ) continue;
+                    ?>
+                    <div class="cree-goal-card" style="background: #ffffff; border: 1px solid #e5e7eb; border-left: 5px solid #03A9F4; padding: 16px; margin-bottom: 15px; border-radius: 6px;">
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px;">
+                            <strong style="font-size: 16px; color: #111827;"><?php echo esc_html( $plan->primary_category ); ?></strong>
+
+                            <div style="display: flex; gap: 10px; align-items: center;" class="no-print">
+                                <button type="button" onclick="creeTogglePlanVisibility(<?php echo intval( $plan->id ); ?>, <?php echo $plan->is_visible_to_client ? 0 : 1; ?>)" style="font-size: 11px; background: <?php echo $plan->is_visible_to_client ? '#e1f5fe' : '#f3f4f6'; ?>; color: <?php echo $plan->is_visible_to_client ? '#01579B' : '#4b5563'; ?>; padding: 3px 8px; border-radius: 4px; border: 1px solid <?php echo $plan->is_visible_to_client ? '#03A9F4' : '#d1d5db'; ?>; font-weight: bold; cursor:pointer; transition: all 0.2s;">
+                                    <?php echo $plan->is_visible_to_client ? '👁️ Client Visible (Click to Hide)' : '🔒 Therapist Only (Click to Show)'; ?>
+                                </button>
+                                <span style="font-size: 12px; color: #6b7280; font-weight: bold;"><?php echo esc_html( wp_date( 'M j, Y', strtotime( $plan->created_at ) ) ); ?></span>
+                                <!-- Edit button -->
+                                <button type="button" onclick="creeEditTreatmentPlan(<?php echo intval( $plan->id ); ?>, '<?php echo esc_js( $plan->primary_category ); ?>')" style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">✏️</button>
+                                <!-- Print button -->
+                                <button type="button" onclick="creePrintTreatmentPlan(this)" style="background:#10b981; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">🖨️</button>
+                                <!-- Delete button -->
+                                <button type="button" onclick="creeDeleteTreatmentPlan(<?php echo intval( $plan->id ); ?>)" style="background:#ef4444; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">🗑️</button>
+                            </div>
+
+                        </div>
+                        
+                        <!-- Accordion Wrapper -->
+                        <div class="cree-accordion-toggle" style="cursor: pointer; color: #03A9F4; font-size: 13px; font-weight: bold; margin-bottom: 10px;">
+                            <span class="toggle-icon">▼</span> View Full Plan Details
+                        </div>
+
+                        <div class="cree-accordion-content" style="display: none; padding-top: 10px; border-top: 1px dashed #e5e7eb;">
+                            <?php foreach ( $plan_data as $section => $items ) : ?>
+                                <div style="margin-bottom: 15px;">
+                                    <h5 style="margin: 0 0 5px 0; color: #4b5563; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;"><?php echo esc_html( $section ); ?></h5>
+                                    <ul style="margin: 0; padding-left: 20px; font-size: 13.5px; color: #1f2937; line-height: 1.5;">
+                                        <?php foreach ( $items as $item ) : ?>
+                                            <li style="margin-bottom: 4px;"><?php echo esc_html( $item ); ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div> <!-- Closes the main cree-goal-card div -->
+                    <?php
+                }
+            }
+            wp_send_json_success( array( 'html' => ob_get_clean() ) );
+        }
+
+        /**
+         * AJAX Handler: Fetch Client Visible Treatment Plans
+         */
+        public function ajax_get_client_visible_plans() {
+            if ( isset( $_POST['security'] ) ) { check_ajax_referer( 'cree_secure_note_nonce', 'security' ); } 
+            elseif ( isset( $_POST['nonce'] ) ) { check_ajax_referer( 'cree_secure_form_submission', 'nonce' ); } 
+            else { wp_send_json_error( array( 'message' => 'Security failed.' ) ); }
+
+            if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            $client_id = get_current_user_id();
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_consejeria_client_plans';
+            $encryption_key = $this->get_encryption_key();
+
+            $plans = $wpdb->get_results( $wpdb->prepare(
+                "SELECT primary_category, created_at, CAST(AES_DECRYPT(plan_data_encrypted, %s) AS CHAR) AS decrypted_data 
+                 FROM {$table_name} WHERE client_id = %d AND is_visible_to_client = 1 ORDER BY created_at DESC",
+                $encryption_key, $client_id
+            ) );
+
+            ob_start();
+            if ( empty( $plans ) ) {
+                echo '<p style="font-style:italic; color:#6b7280;">No active treatment plans are currently available for review.</p>';
+            } else {
+                foreach ( $plans as $plan ) {
+                    $plan_data = json_decode( $plan->decrypted_data, true );
+                    if ( ! is_array( $plan_data ) ) continue;
+                    ?>
+                    <div style="background: #ffffff; border: 1px solid #e5e7eb; border-left: 5px solid #03A9F4; padding: 20px; margin-bottom: 20px; border-radius: 8px;">
+                        <div style="border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 15px;">
+                            <h3 style="margin: 0; color: #1e3a8a;"><?php echo esc_html( $plan->primary_category ); ?></h3>
+                            <span style="font-size: 12px; color: #6b7280;">Created: <?php echo esc_html( wp_date( 'F j, Y', strtotime( $plan->created_at ) ) ); ?></span>
+                        </div>
+                        <?php foreach ( $plan_data as $section => $items ) : ?>
+                            <div style="margin-bottom: 15px;">
+                                <h4 style="margin: 0 0 8px 0; color: #01579B; font-size: 14px;"><?php echo esc_html( $section ); ?></h4>
+                                <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #374151; line-height: 1.5;">
+                                    <?php foreach ( $items as $item ) : ?>
+                                        <li style="margin-bottom: 6px;"><?php echo esc_html( $item ); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php
+                }
+            }
+            wp_send_json_success( array( 'html' => ob_get_clean() ) );
+        }
+
+        /**
+         * AJAX Handler: Toggle Treatment Plan Visibility
+         */
+        public function ajax_toggle_plan_visibility() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            $plan_id = isset( $_POST['plan_id'] ) ? intval( $_POST['plan_id'] ) : 0;
+            $new_status = isset( $_POST['is_visible'] ) ? intval( $_POST['is_visible'] ) : 0;
+
+            if ( $plan_id > 0 ) {
+                global $wpdb;
+                $table = $wpdb->prefix . 'cree_consejeria_client_plans';
+                $wpdb->update( $table, array( 'is_visible_to_client' => $new_status ), array( 'id' => $plan_id ), array( '%d' ), array( '%d' ) );
+                wp_send_json_success();
+            } else {
+                wp_send_json_error( array( 'message' => 'Invalid plan ID.' ) );
+            }
+        }
+
+        /**
+         * WP Cron: Send 24-Hour Appointment Reminders
+         */
+        public function cron_send_appointment_reminders() {
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cree_consejeria_appointments';
+            
+            // Find appointments scheduled between 24 and 25 hours from current server time
+            $query = "SELECT * FROM {$table_name} 
+                      WHERE status = 'scheduled' 
+                      AND appointment_date >= DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 24 HOUR) 
+                      AND appointment_date < DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 25 HOUR)";
+                      
+            $upcoming_appts = $wpdb->get_results( $query );
+
+            foreach ( $upcoming_appts as $appt ) {
+                $client = get_userdata( $appt->client_id );
+                if ( $client ) {
+                    // Added 'T' to wp_date to automatically output the Time Zone (e.g., CST/EST)
+                    $time = wp_date( 'l, F j, Y \a\t g:i A T', strtotime( $appt->appointment_date ) );
+                    $subject = '[CREE Consejería] Recordatorio de Cita / Appointment Reminder';
+                    
+                    $message = "Hola {$client->first_name},\n\nEste es un recordatorio automático de que su próxima sesión está programada para mañana:\n\n";
+                    $message .= "Fecha y Hora: {$time}\n\n";
+                    $message .= "Si necesita reprogramar, por favor acceda a su portal lo antes posible.\n\nAtentamente,\nEquipo de CREE Consejería";
+                    
+                    wp_mail( $client->user_email, $subject, $message, array('Content-Type: text/plain; charset=UTF-8') );
+                }
+            }
+        }
+
+        /**
+         * AJAX Handler: Delete a Treatment Plan
+         */
+        public function ajax_delete_emr_plan() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized access.' ) );
+
+            $plan_id = isset( $_POST['plan_id'] ) ? intval( $_POST['plan_id'] ) : 0;
+
+            if ( $plan_id > 0 ) {
+                global $wpdb;
+                $table = $wpdb->prefix . 'cree_consejeria_client_plans';
+                $deleted = $wpdb->delete( $table, array( 'id' => $plan_id ), array( '%d' ) );
+                
+                if ( $deleted ) {
+                    wp_send_json_success();
+                } else {
+                    wp_send_json_error( array( 'message' => 'Could not delete the plan from the database.' ) );
+                }
+            } else {
+                wp_send_json_error( array( 'message' => 'Invalid plan ID.' ) );
+            }
         }
 
         private function get_encryption_key() {
@@ -2656,7 +3514,9 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                 $wpdb->prefix . 'cree_consejeria_assigned_forms',
                 $wpdb->prefix . 'cree_consejeria_master_schedule',
                 $wpdb->prefix . 'cree_consejeria_schedule_exceptions',
-                $wpdb->prefix . 'cree_consejeria_appointment_requests'
+                $wpdb->prefix . 'cree_consejeria_appointment_requests',
+                $wpdb->prefix . 'cree_consejeria_plan_templates',
+                $wpdb->prefix . 'cree_consejeria_client_plans'
             );
 
             foreach ( $tables_to_drop as $table ) {
