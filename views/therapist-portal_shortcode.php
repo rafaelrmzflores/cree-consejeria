@@ -24,9 +24,36 @@ $clients = get_users( array(
         
         <!-- SIDEBAR: CLIENT LIST -->
         <div style="border-right: 1px solid #e5e7eb; background: #f9fafb; padding: 16px;">
-            <button type="button" onclick="creeLoadGlobalSchedule()" style="background:#10b981; color:#fff; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:20px; width:100%; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🗓️ My Schedule & Requests</button>
-            <h3 style="margin-top: 0; font-size: 15px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Client Directory</h3>
-            <input type="text" id="cree-client-search" placeholder="🔍 Search clients..." style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; margin-bottom: 12px; font-size: 13px;">
+
+            <button type="button" onclick="creeLoadTherapistHome()" style="background:#2563eb; color:#fff; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; flex: 1; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🏠 Home</button>
+            <button type="button" onclick="creeLoadGlobalSchedule()" style="background:#10b981; color:#fff; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; flex: 1; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">📅 Schedule</button>
+            <!-- <button type="button" onclick="creeLoadGlobalSchedule()" style="background:#10b981; color:#fff; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:20px; width:100%; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🗓️ My Schedule & Requests</button> -->
+            <br><br>
+           
+            <!-- <h3 style="margin-top: 0; font-size: 15px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Client Directory</h3>
+            <input type="text" id="cree-client-search" placeholder="🔍 Search clients..." style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; margin-bottom: 12px; font-size: 13px;"> -->
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 15px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Client Directory</h3>
+                <button type="button" id="cree-toggle-add-client-btn" style="background: #2563eb; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">+ New</button>
+            </div>
+
+            <!-- Add Client Form (Hidden by default) -->
+            <div id="cree-add-client-wrapper" style="display: none; background: #fff; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 15px;">
+                <form id="cree-add-client-form">
+                    <input type="text" id="cree_new_first_name" placeholder="First Name" required style="width: 100%; padding: 6px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
+                    <input type="text" id="cree_new_last_name" placeholder="Last Name" required style="width: 100%; padding: 6px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
+                    <input type="email" id="cree_new_email" placeholder="Email Address" required style="width: 100%; padding: 6px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
+                    <div style="display: flex; gap: 5px;">
+                        <button type="submit" class="cree-submit-btn" style="background: #10b981; color: #fff; border: none; padding: 6px; border-radius: 4px; font-size: 12px; cursor: pointer; flex: 1; font-weight: bold;">Save Client</button>
+                        <button type="button" id="cree-cancel-add-client-btn" style="background: #e5e7eb; color: #374151; border: none; padding: 6px; border-radius: 4px; font-size: 12px; cursor: pointer; flex: 1;">Cancel</button>
+                    </div>
+                    <div id="cree-add-client-feedback" style="display: none; margin-top: 8px; font-size: 11px; font-weight: bold;"></div>
+                </form>
+            </div>
+
+            <!-- Version 1 -->
+            <!-- <input type="text" id="cree-client-search" placeholder="🔍 Search clients..." style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; margin-bottom: 12px; font-size: 13px;">
 
             <div id="cree-client-directory-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 500px; overflow-y: auto;">
                 <?php if ( ! empty( $clients ) ) : ?>
@@ -39,16 +66,51 @@ $clients = get_users( array(
                 <?php else : ?>
                     <p style="font-size: 13px; color: #6b7280;">No client accounts found.</p>
                 <?php endif; ?>
+            </div> -->
+
+            <!-- Version 2 -->
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <select id="cree-client-status-filter" style="width: 40%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
+                    <option value="active">Active</option>
+                    <option value="inactive">Archived</option>
+                </select>
+                <input type="text" id="cree-client-search" placeholder="🔍 Search clients..." style="width: 60%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
+            </div>
+
+            <div id="cree-client-directory-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 500px; overflow-y: auto;">
+                <?php if ( ! empty( $clients ) ) : ?>
+                    <?php foreach ( $clients as $c ) : 
+                        $status = get_user_meta( $c->ID, 'cree_client_status', true );
+                        if ( empty($status) ) $status = 'active';
+                    ?>
+                        <div class="cree-client-card" data-client-id="<?php echo intval( $c->ID ); ?>" data-status="<?php echo esc_attr($status); ?>" onclick="creeSelectClient(<?php echo intval( $c->ID ); ?>, this)" style="display: <?php echo $status === 'active' ? 'block' : 'none'; ?>; padding: 10px 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                            <strong style="display: block; font-size: 14px; color: #1f2937;"><?php echo esc_html( $c->display_name ); ?></strong>
+                            <span style="font-size: 12px; color: #6b7280;"><?php echo esc_html( $c->user_email ); ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else : ?>
+                    <p style="font-size: 13px; color: #6b7280;">No client accounts found.</p>
+                <?php endif; ?>
             </div>
         </div>
 
         <!-- MAIN PANEL: CLIENT PROFILE WORKSPACE -->
-        <div style="padding: 24px;" id="cree-profile-main-panel">
+        <!-- <div style="padding: 24px;" id="cree-profile-main-panel">
             <div id="cree-profile-placeholder" style="text-align: center; padding: 80px 20px; color: #6b7280;">
                 <div style="font-size: 48px; margin-bottom: 16px;">👤</div>
                 <h3 style="margin: 0 0 8px 0; color: #374151;">Select a Client Profile</h3>
                 <p style="margin: 0;">Click on any client name from the list on the left to manage their forms, notes, and session schedule.</p>
             </div>
+            <div id="cree-profile-active-content" style="display: none;"></div>
+        </div> -->
+
+        <!-- MAIN PANEL: CLIENT PROFILE WORKSPACE -->
+        <div style="padding: 24px;" id="cree-profile-main-panel">
+            <div id="cree-home-dashboard-container">
+                <!-- Dashboard injects here -->
+                <p style="color: #6b7280; font-style: italic;">Loading your practice overview...</p>
+            </div>
+            
             <div id="cree-profile-active-content" style="display: none;"></div>
         </div>
 
@@ -111,6 +173,7 @@ function creeSelectClient(clientId, elem, forceTab = null) {
     jQuery(elem).addClass('active-client');
     jQuery('#cree-profile-placeholder').hide();
     jQuery('#cree-profile-active-content').show().html('<p>Loading client workspace...</p>');
+    jQuery('#cree-home-dashboard-container').hide();
 
     jQuery.post(CREE_NOTE_FORM.ajax_url, {
         action: 'cree_get_client_profile_data',
@@ -311,6 +374,7 @@ function creeLoadGlobalSchedule() {
     jQuery('.cree-client-card').removeClass('active-client');
     jQuery('#cree-profile-placeholder').hide();
     jQuery('#cree-profile-active-content').show().html('<p>Loading schedule dashboard...</p>');
+    jQuery('#cree-home-dashboard-container').hide();
 
     jQuery.post(CREE_NOTE_FORM.ajax_url, {
         action: 'cree_load_schedule_dashboard',
@@ -356,14 +420,35 @@ function creeHandleRequest(id, action) {
 }
 
 // Client Directory Search Filter
+// jQuery(document).ready(function($) {
+//     $('#cree-client-search').on('keyup', function() {
+//         var term = $(this).val().toLowerCase();
+//         $('.cree-client-card').each(function() {
+//             var text = $(this).text().toLowerCase();
+//             $(this).toggle(text.indexOf(term) > -1);
+//         });
+//     });
+// });
+
+// Client Directory Search & Status Filter
 jQuery(document).ready(function($) {
-    $('#cree-client-search').on('keyup', function() {
-        var term = $(this).val().toLowerCase();
+    function filterClients() {
+        var term = $('#cree-client-search').val().toLowerCase();
+        var statusFilter = $('#cree-client-status-filter').val();
+        
         $('.cree-client-card').each(function() {
             var text = $(this).text().toLowerCase();
-            $(this).toggle(text.indexOf(term) > -1);
+            var cardStatus = $(this).data('status');
+            
+            var matchesSearch = text.indexOf(term) > -1;
+            var matchesStatus = (cardStatus === statusFilter);
+            
+            $(this).toggle(matchesSearch && matchesStatus);
         });
-    });
+    }
+    
+    $('#cree-client-search').on('keyup', filterClients);
+    $('#cree-client-status-filter').on('change', filterClients);
 });
 
 // Toggle to Edit Mode

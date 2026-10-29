@@ -84,6 +84,7 @@ class CREE_Consejeria_Client_Portal {
                 <button class="cree-client-nav-btn" onclick="creeSwitchClientTab(event, 'client-tab-appointments')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">📅 Appointments</button>
                 <button class="cree-client-nav-btn" onclick="creeSwitchClientTab(event, 'client-tab-plan')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">🎯 Treatment Plan</button>
                 <button class="cree-client-nav-btn" onclick="creeSwitchClientTab(event, 'client-tab-billing')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">💳 Billing</button>
+                <button class="cree-client-nav-btn" onclick="creeSwitchClientTab(event, 'client-tab-settings')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">⚙️ Settings</button>
             </div>
 
             <!-- TAB 1: FORMS -->
@@ -230,6 +231,29 @@ class CREE_Consejeria_Client_Portal {
                 </div>
             </div>
 
+            <!-- TAB 5: ACCOUNT SETTINGS -->
+            <div id="client-tab-settings" class="cree-client-tab-content" style="display:none;">
+                <div style="background: #fff; padding: 25px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <h3 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">🔐 Update Password</h3>
+                    <p style="font-size: 14px; color: #4b5563; margin-bottom: 20px;">Use the form below to change your temporary password to a secure, private one that you can remember.</p>
+                    
+                    <form id="cree-client-password-form" style="max-width: 400px;">
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; font-size: 13px; font-weight: bold; color: #374151; margin-bottom: 5px;">New Password (Min. 8 characters)</label>
+                            <input type="password" name="new_password" required minlength="8" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; font-size: 13px; font-weight: bold; color: #374151; margin-bottom: 5px;">Confirm New Password</label>
+                            <input type="password" name="confirm_password" required minlength="8" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        <button type="submit" style="background: #2563eb; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; transition: background 0.2s;">
+                            Save New Password
+                        </button>
+                        <div id="cree-password-feedback" style="margin-top: 10px; font-size: 13px; font-weight: bold; display: none;"></div>
+                    </form>
+                </div>
+            </div>
+
             <!-- Form Details Modal -->
             <div id="cree-form-view-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
                 <div style="background:#fff; width:90%; max-width:650px; max-height:85vh; border-radius:8px; padding:25px; overflow-y:auto; position:relative;">
@@ -328,6 +352,61 @@ class CREE_Consejeria_Client_Portal {
                     }
                 });
             }
+
+            // Generate & Print Superbill (Client Portal Version)
+            function creeGenerateSuperbill(billingId) {
+                jQuery.post(CREE_INTAKE_FORM.ajax_url, {
+                    action: 'cree_generate_superbill',
+                    nonce: CREE_INTAKE_FORM.nonce, // Only send the correct client nonce
+                    billing_id: billingId
+                }, function(res) {
+                    if (res && res.success) {
+                        var printWin = window.open('', '_blank');
+                        printWin.document.write('<!DOCTYPE html><html><head><title>Superbill - CREE Consejería</title>');
+                        printWin.document.write('<style>@media print { .no-print { display: none; } }</style></head><body>');
+                        printWin.document.write('<div class="no-print" style="text-align:right; margin-bottom:20px; padding:20px;"><button onclick="window.print()" style="padding:10px 20px; background:#2563eb; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">🖨️ Print / Save as PDF</button></div>');
+                        printWin.document.write(res.data.html);
+                        printWin.document.write('</body></html>');
+                        printWin.document.close();
+                    } else {
+                        alert('Error: ' + (res.data.message || 'Could not generate Superbill.'));
+                    }
+                }).fail(function() {
+                    alert('Server connection error. Security check failed.');
+                });
+            }
+
+            // Handle Client Password Update
+            jQuery(document).on('submit', '#cree-client-password-form', function(e) {
+                e.preventDefault();
+                var $btn = jQuery(this).find('button[type="submit"]');
+                var $feedback = jQuery('#cree-password-feedback');
+                
+                var pass1 = jQuery('input[name="new_password"]').val();
+                var pass2 = jQuery('input[name="confirm_password"]').val();
+                
+                if (pass1 !== pass2) {
+                    $feedback.css('color', '#dc2626').text('❌ Passwords do not match.').show();
+                    return;
+                }
+                
+                $btn.prop('disabled', true).text('Saving...');
+                $feedback.hide();
+                
+                jQuery.post(CREE_INTAKE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_update_client_password&nonce=' + CREE_INTAKE_FORM.nonce, function(res) {
+                    if (res && res.success) {
+                        $feedback.css('color', '#10b981').text('✔️ ' + res.data.message).show();
+                        jQuery('#cree-client-password-form')[0].reset();
+                    } else {
+                        $feedback.css('color', '#dc2626').text('❌ Error: ' + (res.data.message || 'Could not update password.')).show();
+                    }
+                    $btn.prop('disabled', false).text('Save New Password');
+                }).fail(function() {
+                    $feedback.css('color', '#dc2626').text('❌ Server connection error.').show();
+                    $btn.prop('disabled', false).text('Save New Password');
+                });
+            });
+
         </script>
         <?php
         return ob_get_clean();

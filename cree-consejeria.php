@@ -121,6 +121,14 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             add_action( 'wp_ajax_cree_update_billing_status', array( $this, 'ajax_update_billing_status' ) );
             add_action( 'wp_ajax_cree_generate_superbill', array( $this, 'ajax_generate_superbill' ) );
 
+            add_action( 'wp_ajax_cree_load_therapist_dashboard', array( $this, 'ajax_load_therapist_dashboard' ) );
+
+            add_action( 'wp_ajax_cree_delete_client', array( $this, 'ajax_delete_client' ) );
+
+            add_action( 'wp_ajax_cree_toggle_client_status', array( $this, 'ajax_toggle_client_status' ) );
+
+            add_action( 'wp_ajax_cree_update_client_password', array( $this, 'ajax_update_client_password' ) );
+
             add_action( 'plugins_loaded', array( $this, 'check_plugin_version' ) );
         }
 
@@ -539,11 +547,18 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             $site_name = wp_parse_url( home_url(), PHP_URL_HOST );
             $from_email = 'no-reply@' . $site_name;
 
-            $headers = array(
-                'Content-Type: text/plain; charset=UTF-8',
-                'From: CREE Consejería <' . $from_email . '>'
-            );
+            // $headers = array(
+            //     'Content-Type: text/plain; charset=UTF-8',
+            //     'From: CREE Consejería <' . $from_email . '>'
+            // );
 
+            // wp_mail( $to, $subject, $message, $headers );
+
+            // Let WP Mail SMTP handle the Sender Name and Email automatically
+            $headers = array( 
+                'Content-Type: text/plain; charset=UTF-8'
+            );
+            
             wp_mail( $to, $subject, $message, $headers );
         }
 
@@ -704,7 +719,10 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             ) );
 
             // Send custom welcome email with password reset link
-            $this->send_client_welcome_email( $user_id, $display_name, $email );
+            // $this->send_client_welcome_email( $user_id, $display_name, $email );
+
+            // Send custom welcome email with temporary password
+            $this->send_client_welcome_email( $user_id, $display_name, $email, $random_password );
 
             wp_send_json_success( array(
                 'user_id'      => $user_id,
@@ -714,7 +732,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             ) );
         }
 
-        private function send_client_welcome_email( $user_id, $display_name, $email ) {
+        private function send_client_welcome_email_deprecated( $user_id, $display_name, $email ) {
             $user = get_userdata( $user_id );
             $key  = get_password_reset_key( $user );
 
@@ -737,6 +755,119 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             $headers = array( 'Content-Type: text/plain; charset=UTF-8' );
             wp_mail( $email, $subject, $message, $headers );
+        }
+
+        private function send_client_welcome_email_test1( $user_id, $display_name, $email ) {
+            $user = get_userdata( $user_id );
+            $key  = get_password_reset_key( $user );
+            if ( is_wp_error( $key ) ) {
+                return;
+            }
+            $reset_url = network_site_url( "wp-login.php?action=rp&key=$key&login=" . rawurlencode( $user->user_login ), 'login' );
+            $login_url = home_url( '/client-login/' );
+
+            $subject = '[CREE Consejería] Bienvenido(a) - Instrucciones de Acceso al Portal';
+            
+            $message  = "Hola " . $display_name . ",\n\n";
+            $message .= "Bienvenido(a) a CREE Consejería. He creado su expediente clínico digital seguro. Para comenzar y prepararnos para nuestra sesión, por favor siga estos 3 sencillos pasos:\n\n";
+            
+            $message .= "PASO 1: Cree su contraseña privada\n";
+            $message .= "Haga clic en el enlace a continuación para establecer una contraseña segura para su expediente:\n";
+            $message .= $reset_url . "\n\n";
+            
+            $message .= "PASO 2: Inicie sesión en el Portal del Cliente\n";
+            $message .= "Una vez creada su contraseña, inicie sesión utilizando su correo electrónico aquí:\n";
+            $message .= $login_url . "\n";
+            $message .= "Usuario: " . $email . "\n\n";
+            
+            $message .= "PASO 3: Complete sus documentos iniciales\n";
+            $message .= "Al ingresar al portal, verá una pestaña llamada '📋 My Forms'. Por favor, revise y complete todos los documentos pendientes antes de nuestra cita. Esto nos permitirá aprovechar al máximo nuestro tiempo juntos.\n\n";
+            
+            $message .= "Si tiene alguna pregunta o dificultad técnica para ingresar, por favor responda a este correo o comuníquese al 325-219-4039.\n\n";
+            $message .= "Atentamente,\nRafael Ramírez (LPC-A)\nCREE Consejería";
+
+            // Use the site domain for a proper sender address to prevent spam filtering
+            $site_name = wp_parse_url( home_url(), PHP_URL_HOST );
+            $from_email = 'no-reply@' . $site_name;
+
+            $headers = array( 
+                'Content-Type: text/plain; charset=UTF-8',
+                'From: CREE Consejería <' . $from_email . '>'
+            );
+            
+            wp_mail( $email, $subject, $message, $headers );
+        }
+
+        private function send_client_welcome_email_test2( $user_id, $display_name, $email, $random_password ) {
+            $login_url = home_url( '/client-login/' );
+
+            $subject = '[CREE Consejeria] Bienvenido(a) - Instrucciones de Acceso al Portal';
+            
+            $message  = "Hola " . $display_name . ",\n\n";
+            $message .= "Bienvenido(a) a CREE Consejeria. He creado su expediente clínico digital seguro. Para comenzar y prepararnos para nuestra sesión, por favor siga estos pasos:\n\n";
+            
+            $message .= "PASO 1: Inicie sesión en el Portal del Cliente\n";
+            $message .= "Acceda al portal utilizando el siguiente enlace:\n";
+            $message .= $login_url . "\n\n";
+            
+            $message .= "Sus credenciales de acceso son:\n";
+            $message .= "Usuario: " . $email . "\n";
+            $message .= "Contraseña Temporal: " . $random_password . "\n\n";
+            
+            $message .= "PASO 2: Complete sus documentos iniciales\n";
+            $message .= "Al ingresar al portal, verá una pestaña llamada '📋 My Forms'. Por favor, revise y complete todos los documentos pendientes antes de nuestra cita. Esto nos permitirá aprovechar al máximo nuestro tiempo juntos.\n\n";
+            
+            $message .= "Si tiene alguna pregunta o dificultad técnica para ingresar, por favor comuníquese al 325-219-4039.\n\n";
+            $message .= "Atentamente,\nRafael Ramírez (LPC-A)\nCREE Consejeria";
+
+            // Dynamically fetch your verified admin email address
+            $sender_email = get_option( 'admin_email' );
+
+            // Explicitly set a clean sender name (NO ACCENTS) to satisfy Brevo's API
+            $headers = array( 
+                'Content-Type: text/plain; charset=UTF-8',
+                'From: CREE Consejeria <' . $sender_email . '>'
+            );
+            
+            wp_mail( $email, $subject, $message, $headers );
+        }
+
+        private function send_client_welcome_email( $user_id, $display_name, $email, $random_password ) {
+            $login_url = home_url( '/client-login/' );
+
+            $subject = '[CREE Consejeria] Bienvenido(a) - Instrucciones de Acceso al Portal';
+            
+            $message  = "Hola " . $display_name . ",\n\n";
+            $message .= "Bienvenido(a) a CREE Consejeria. He creado su expediente clínico digital seguro. Para comenzar y prepararnos para nuestra sesión, por favor siga estos pasos:\n\n";
+            
+            $message .= "PASO 1: Inicie sesión en el Portal del Cliente\n";
+            $message .= "Acceda al portal utilizando el siguiente enlace:\n";
+            $message .= $login_url . "\n\n";
+            
+            $message .= "Sus credenciales de acceso son:\n";
+            $message .= "Usuario: " . $email . "\n";
+            $message .= "Contraseña Temporal: " . $random_password . "\n\n";
+            
+            $message .= "PASO 2: Complete sus documentos iniciales\n";
+            $message .= "Al ingresar al portal, verá una pestaña llamada '📋 My Forms'. Por favor, revise y complete todos los documentos pendientes antes de nuestra cita. Esto nos permitirá aprovechar al máximo nuestro tiempo juntos.\n\n";
+            
+            $message .= "Si tiene alguna pregunta o dificultad técnica para ingresar, por favor comuníquese al 325-219-4039.\n\n";
+            $message .= "Atentamente,\nRafael Ramírez (LPC-A)\nCREE Consejeria";
+
+            $headers = array( 'Content-Type: text/plain; charset=UTF-8' );
+
+            // BULLETPROOF BYPASS: Inject the sender name and email directly into the core mailer
+            $custom_mail_name = function( $name ) { return 'CREE Consejeria'; };
+            $custom_mail_from = function( $email ) { return get_option( 'admin_email' ); };
+
+            add_filter( 'wp_mail_from_name', $custom_mail_name );
+            add_filter( 'wp_mail_from', $custom_mail_from );
+            
+            wp_mail( $email, $subject, $message, $headers );
+
+            // Remove the filters immediately after sending so it doesn't affect other plugins
+            remove_filter( 'wp_mail_from_name', $custom_mail_name );
+            remove_filter( 'wp_mail_from', $custom_mail_from );
         }
 
         /**
@@ -1993,9 +2124,47 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             ob_start();
             ?>
-            <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+             <!-- Version 1 -->
+            <!-- <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
                 <h2 style="margin-top:0; color: #1e3a8a;"><?php echo esc_html( $user_info->display_name ); ?></h2>
                 <p style="margin: 0; color: #4b5563;">📧 <?php echo esc_html( $user_info->user_email ); ?> | 🆔 Client ID: #<?php echo intval( $user_info->ID ); ?></p>
+            </div> -->
+
+             <!-- Version 2 -->
+            <!-- <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2 style="margin-top:0; color: #1e3a8a;"><?php echo esc_html( $user_info->display_name ); ?></h2>
+                    <p style="margin: 0; color: #4b5563;">📧 <?php echo esc_html( $user_info->user_email ); ?> | 🆔 Client ID: #<?php echo intval( $user_info->ID ); ?></p>
+                </div>
+                <button type="button" onclick="creeDeleteClient(<?php echo intval( $user_info->ID ); ?>)" style="background: #ef4444; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: background 0.2s;">
+                    🗑️ Delete Client
+                </button>
+            </div> -->
+
+            <!-- Version 3 -->
+            <?php
+            // Fetch status (default to active if not set)
+            $client_status = get_user_meta( $client_id, 'cree_client_status', true );
+            if ( empty( $client_status ) ) $client_status = 'active';
+            ?>
+            <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <h2 style="margin:0; color: #1e3a8a;"><?php echo esc_html( $user_info->display_name ); ?></h2>
+                        <?php if ( $client_status === 'inactive' ) : ?>
+                            <span style="background: #e5e7eb; color: #4b5563; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase;">Archived</span>
+                        <?php endif; ?>
+                    </div>
+                    <p style="margin: 5px 0 0 0; color: #4b5563;">📧 <?php echo esc_html( $user_info->user_email ); ?> | 🆔 Client ID: #<?php echo intval( $user_info->ID ); ?></p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <?php if ( $client_status === 'active' ) : ?>
+                        <button type="button" onclick="creeToggleClientStatus(<?php echo intval( $user_info->ID ); ?>, 'inactive')" style="background: #f59e0b; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">📦 Archive</button>
+                    <?php else : ?>
+                        <button type="button" onclick="creeToggleClientStatus(<?php echo intval( $user_info->ID ); ?>, 'active')" style="background: #10b981; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">✅ Reactivate</button>
+                    <?php endif; ?>
+                    <button type="button" onclick="creeDeleteClient(<?php echo intval( $user_info->ID ); ?>)" style="background: #ef4444; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">🗑️ Delete</button>
+                </div>
             </div>
 
             <!-- Sub-Tabs Navigation -->
@@ -3724,14 +3893,20 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
          * AJAX: Generate Superbill HTML for Printing
          */
         public function ajax_generate_superbill() {
-            if ( isset( $_POST['security'] ) ) { check_ajax_referer( 'cree_secure_note_nonce', 'security' ); } 
-            elseif ( isset( $_POST['nonce'] ) ) { check_ajax_referer( 'cree_secure_form_submission', 'nonce' ); } 
-            else { wp_send_json_error(); }
+            // Check Client Nonce first, then Therapist Nonce
+            if ( isset( $_POST['nonce'] ) ) { check_ajax_referer( 'cree_secure_form_submission', 'nonce' ); } 
+            elseif ( isset( $_POST['security'] ) ) { check_ajax_referer( 'cree_secure_note_nonce', 'security' ); } 
+            else { wp_send_json_error( array( 'message' => 'Security check failed.' ) ); }
 
             $billing_id = intval( $_POST['billing_id'] );
             global $wpdb;
             $billing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}cree_consejeria_billing WHERE id = %d", $billing_id ) );
             if ( ! $billing ) wp_send_json_error( array( 'message' => 'Record not found.' ) );
+
+            // Security: Ensure clients can only download their own bills
+            if ( ! current_user_can( 'edit_posts' ) && $billing->client_id != get_current_user_id() ) {
+                wp_send_json_error( array( 'message' => 'Unauthorized access to this billing record.' ) );
+            }
 
             $client = get_userdata( $billing->client_id );
             $therapist = get_userdata( $billing->therapist_id );
@@ -3795,6 +3970,201 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             </div>
             <?php
             wp_send_json_success( array( 'html' => ob_get_clean() ) );
+        }
+
+        /**
+         * AJAX: Load Therapist Home Analytics Dashboard
+         */
+        public function ajax_load_therapist_dashboard() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            global $wpdb;
+            $therapist_id = get_current_user_id();
+            $today_date   = current_time( 'Y-m-d' );
+            
+            // 1. Calculate Unpaid Billing
+            $unpaid_total = $wpdb->get_var( $wpdb->prepare( 
+                "SELECT SUM(amount) FROM {$wpdb->prefix}cree_consejeria_billing WHERE therapist_id = %d AND status = 'unpaid'", 
+                $therapist_id 
+            ) );
+            
+            // 2. Count Pending Appointment Requests
+            $pending_reqs = $wpdb->get_var( $wpdb->prepare( 
+                "SELECT COUNT(id) FROM {$wpdb->prefix}cree_consejeria_appointment_requests WHERE therapist_id = %d AND status = 'pending'", 
+                $therapist_id 
+            ) );
+            
+            // 3. Count Total Clients
+            // $total_clients = count( get_users( array( 'role__in' => array( 'subscriber', 'customer', 'client' ) ) ) );
+
+            // 3. Count Total Active Clients Only
+            $active_clients_args = array(
+                'role__in'   => array( 'subscriber', 'customer', 'client' ),
+                'meta_query' => array(
+                    'relation' => 'OR',
+                    array(
+                        'key'     => 'cree_client_status',
+                        'value'   => 'inactive',
+                        'compare' => '!='
+                    ),
+                    array(
+                        'key'     => 'cree_client_status',
+                        'compare' => 'NOT EXISTS' // Catches older accounts that don't have a status yet
+                    )
+                )
+            );
+            $total_clients = count( get_users( $active_clients_args ) );
+            
+            // 4. Fetch Today's Schedule
+            $appointments_table = $wpdb->prefix . 'cree_consejeria_appointments';
+            $todays_appts = $wpdb->get_results( $wpdb->prepare(
+                "SELECT a.id, a.client_id, a.appointment_date, a.duration_minutes, a.telehealth_link, u.display_name AS client_name 
+                 FROM {$appointments_table} a
+                 LEFT JOIN {$wpdb->users} u ON a.client_id = u.ID
+                 WHERE a.therapist_id = %d AND DATE(a.appointment_date) = %s AND a.status = 'scheduled'
+                 ORDER BY a.appointment_date ASC",
+                $therapist_id, $today_date
+            ) );
+
+            ob_start();
+            ?>
+            <div style="animation: fadeIn 0.3s ease-in-out;">
+                <h2 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Practice Overview</h2>
+                
+                <!-- Key Metrics Cards -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; margin-top: 20px;">
+                    <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; border-top: 4px solid #3b82f6; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <p style="margin: 0; font-size: 13px; color: #6b7280; font-weight: bold; text-transform: uppercase;">Active Clients</p>
+                        <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #111827;"><?php echo intval( $total_clients ); ?></h3>
+                    </div>
+                    
+                    <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; border-top: 4px solid #f59e0b; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <p style="margin: 0; font-size: 13px; color: #6b7280; font-weight: bold; text-transform: uppercase;">Pending Requests</p>
+                        <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #111827;"><?php echo intval( $pending_reqs ); ?></h3>
+                        <?php if ( $pending_reqs > 0 ) : ?>
+                            <a href="#" onclick="creeLoadGlobalSchedule(); return false;" style="font-size: 12px; color: #d97706; text-decoration: none; font-weight: bold; margin-top: 5px; display: inline-block;">Review Requests →</a>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; border-top: 4px solid #ef4444; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <p style="margin: 0; font-size: 13px; color: #6b7280; font-weight: bold; text-transform: uppercase;">Unpaid Balances</p>
+                        <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #111827;">$<?php echo number_format( floatval( $unpaid_total ), 2 ); ?></h3>
+                    </div>
+                </div>
+
+                <!-- Today's Itinerary -->
+                <h3 style="color: #374151; margin-bottom: 15px;">📅 Today's Itinerary</h3>
+                <?php if ( empty( $todays_appts ) ) : ?>
+                    <div style="background: #f9fafb; padding: 25px; border-radius: 8px; border: 1px dashed #d1d5db; text-align: center; color: #6b7280;">
+                        You have no appointments scheduled for today.
+                    </div>
+                <?php else : ?>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <?php foreach ( $todays_appts as $appt ) : 
+                            $appt_time = strtotime( $appt->appointment_date );
+                        ?>
+                            <div style="background: #fff; border: 1px solid #e5e7eb; border-left: 4px solid #10b981; padding: 15px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong style="font-size: 16px; color: #111827; display: block; margin-bottom: 4px;">
+                                        <?php echo esc_html( wp_date( 'g:i A', $appt_time ) ); ?> - <?php echo esc_html( $appt->client_name ); ?>
+                                    </strong>
+                                    <span style="font-size: 13px; color: #4b5563;">Duration: <?php echo intval( $appt->duration_minutes ); ?> Min</span>
+                                </div>
+                                <div style="display: flex; gap: 10px;">
+                                    <?php if ( ! empty( $appt->telehealth_link ) ) : ?>
+                                        <a href="<?php echo esc_url( $appt->telehealth_link ); ?>" target="_blank" style="background: #2563eb; color: #fff; text-decoration: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold;">🎥 Launch Video</a>
+                                    <?php endif; ?>
+                                    <button onclick="creeSelectClient(<?php echo intval( $appt->client_id ); ?>, null, 'prof-notes')" style="background: #4b5563; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">📝 Take Notes</button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <?php
+            wp_send_json_success( array( 'html' => ob_get_clean() ) );
+        }
+
+        /**
+         * AJAX: Permanently Delete Client & All Associated Records
+         */
+        public function ajax_delete_client() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( 'Unauthorized' );
+
+            $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+            if ( $client_id <= 0 ) wp_send_json_error( 'Invalid client ID.' );
+
+            global $wpdb;
+
+            // 1. Scrub all clinical and billing data from custom tables to prevent orphaned records
+            $wpdb->delete( $wpdb->prefix . 'cree_consejeria_client_forms_master', array( 'wp_id' => $client_id ) );
+            $wpdb->delete( $wpdb->prefix . 'cree_consejeria_session_notes', array( 'client_id' => $client_id ) );
+            $wpdb->delete( $wpdb->prefix . 'cree_consejeria_appointments', array( 'client_id' => $client_id ) );
+            $wpdb->delete( $wpdb->prefix . 'cree_consejeria_treatment_goals', array( 'client_id' => $client_id ) );
+            $wpdb->delete( $wpdb->prefix . 'cree_consejeria_assigned_forms', array( 'client_id' => $client_id ) );
+            $wpdb->delete( $wpdb->prefix . 'cree_consejeria_appointment_requests', array( 'client_id' => $client_id ) );
+            $wpdb->delete( $wpdb->prefix . 'cree_consejeria_client_plans', array( 'client_id' => $client_id ) );
+            $wpdb->delete( $wpdb->prefix . 'cree_consejeria_billing', array( 'client_id' => $client_id ) );
+            
+            // 2. Delete the actual WordPress User Account
+            require_once( ABSPATH . 'wp-admin/includes/user.php' );
+            if ( wp_delete_user( $client_id ) ) {
+                wp_send_json_success( 'Client and all associated records have been permanently deleted.' );
+            } else {
+                wp_send_json_error( 'Failed to delete the WordPress user account.' );
+            }
+        }
+
+        /**
+         * AJAX: Toggle Client Status (Active/Inactive)
+         */
+        public function ajax_toggle_client_status() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( 'Unauthorized' );
+
+            $client_id = isset( $_POST['client_id'] ) ? intval( $_POST['client_id'] ) : 0;
+            $new_status = sanitize_text_field( $_POST['status'] ); // 'active' or 'inactive'
+
+            if ( $client_id > 0 ) {
+                update_user_meta( $client_id, 'cree_client_status', $new_status );
+                wp_send_json_success();
+            } else {
+                wp_send_json_error( 'Invalid client ID.' );
+            }
+        }
+
+        /**
+         * AJAX: Client Updates Their Own Password
+         */
+        public function ajax_update_client_password() {
+            check_ajax_referer( 'cree_secure_form_submission', 'nonce' );
+            if ( ! is_user_logged_in() ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            $new_pass = isset( $_POST['new_password'] ) ? $_POST['new_password'] : '';
+            $confirm_pass = isset( $_POST['confirm_password'] ) ? $_POST['confirm_password'] : '';
+
+            if ( empty( $new_pass ) || $new_pass !== $confirm_pass ) {
+                wp_send_json_error( array( 'message' => 'Passwords do not match.' ) );
+            }
+            if ( strlen( $new_pass ) < 8 ) {
+                wp_send_json_error( array( 'message' => 'Password must be at least 8 characters.' ) );
+            }
+
+            $user_id = get_current_user_id();
+            
+            // Update the password in the database
+            wp_set_password( $new_pass, $user_id );
+            
+            // wp_set_password() destroys the active session. We need to instantly log them back in.
+            $user = get_user_by( 'id', $user_id );
+            clean_user_cache( $user_id );
+            wp_clear_auth_cookie();
+            wp_set_current_user( $user_id, $user->user_login );
+            wp_set_auth_cookie( $user_id );
+
+            wp_send_json_success( array( 'message' => 'Password updated successfully!' ) );
         }
 
         private function get_encryption_key() {

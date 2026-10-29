@@ -398,59 +398,180 @@ function creeDeleteTreatmentPlan(planId) {
 }
 
 // Submit New Billing Charge
-jQuery(document).on('submit', '#cree-add-billing-form', function(e) {
-    e.preventDefault();
-    var $btn = jQuery(this).find('button[type="submit"]');
-    $btn.prop('disabled', true).text('Saving...');
-    
-    jQuery.post(CREE_NOTE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_save_billing&security=' + CREE_NOTE_FORM.nonce, function(res) {
-        if (res.success) {
-            var clientId = jQuery('input[name="client_id"]').val();
-            creeSelectClient(clientId, jQuery('.cree-client-card.active-client'), 'prof-billing'); // Refresh tab
-        } else {
-            alert(res.data.message || 'Error saving charge.');
-            $btn.prop('disabled', false).text('➕ Add Charge');
-        }
-    });
+jQuery(document).on("submit", "#cree-add-billing-form", function (e) {
+  e.preventDefault();
+  var $btn = jQuery(this).find('button[type="submit"]');
+  $btn.prop("disabled", true).text("Saving...");
+
+  jQuery.post(
+    CREE_NOTE_FORM.ajax_url,
+    jQuery(this).serialize() +
+      "&action=cree_save_billing&security=" +
+      CREE_NOTE_FORM.nonce,
+    function (res) {
+      if (res.success) {
+        var clientId = jQuery('input[name="client_id"]').val();
+        creeSelectClient(
+          clientId,
+          jQuery(".cree-client-card.active-client"),
+          "prof-billing",
+        ); // Refresh tab
+      } else {
+        alert(res.data.message || "Error saving charge.");
+        $btn.prop("disabled", false).text("➕ Add Charge");
+      }
+    },
+  );
 });
 
 // Update Billing Status (Mark Paid)
 function creeUpdateBillingStatus(billingId, status) {
-    if (!confirm('Mark this charge as ' + status + '?')) return;
-    jQuery.post(CREE_NOTE_FORM.ajax_url, {
-        action: 'cree_update_billing_status',
-        security: CREE_NOTE_FORM.nonce,
-        billing_id: billingId,
-        status: status
-    }, function(res) {
-        if (res.success) {
-            var clientId = jQuery('input[name="client_id"]').val();
-            creeSelectClient(clientId, jQuery('.cree-client-card.active-client'), 'prof-billing'); // Refresh tab
-        }
-    });
+  if (!confirm("Mark this charge as " + status + "?")) return;
+  jQuery.post(
+    CREE_NOTE_FORM.ajax_url,
+    {
+      action: "cree_update_billing_status",
+      security: CREE_NOTE_FORM.nonce,
+      billing_id: billingId,
+      status: status,
+    },
+    function (res) {
+      if (res.success) {
+        var clientId = jQuery('input[name="client_id"]').val();
+        creeSelectClient(
+          clientId,
+          jQuery(".cree-client-card.active-client"),
+          "prof-billing",
+        ); // Refresh tab
+      }
+    },
+  );
 }
 
 // Generate & Print Superbill
 function creeGenerateSuperbill(billingId) {
-    // Determine which ajax object to use based on where we are (Therapist Portal vs Client Portal)
-    var ajaxObj = typeof CREE_NOTE_FORM !== 'undefined' ? CREE_NOTE_FORM : CREE_INTAKE_FORM;
-    
-    jQuery.post(ajaxObj.ajax_url, {
-        action: 'cree_generate_superbill',
-        security: ajaxObj.nonce,
-        nonce: ajaxObj.nonce,
-        billing_id: billingId
-    }, function(res) {
-        if (res.success) {
-            var printWin = window.open('', '_blank');
-            printWin.document.write('<!DOCTYPE html><html><head><title>Superbill - CREE Consejería</title>');
-            printWin.document.write('<style>@media print { .no-print { display: none; } }</style></head><body>');
-            printWin.document.write('<div class="no-print" style="text-align:right; margin-bottom:20px; padding:20px;"><button onclick="window.print()" style="padding:10px 20px; background:#2563eb; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">🖨️ Print / Save as PDF</button></div>');
-            printWin.document.write(res.data.html);
-            printWin.document.write('</body></html>');
-            printWin.document.close();
-        } else {
-            alert('Error generating Superbill.');
-        }
-    });
+  // Determine which ajax object to use based on where we are (Therapist Portal vs Client Portal)
+  var ajaxObj =
+    typeof CREE_NOTE_FORM !== "undefined" ? CREE_NOTE_FORM : CREE_INTAKE_FORM;
+
+  jQuery.post(
+    ajaxObj.ajax_url,
+    {
+      action: "cree_generate_superbill",
+      security: ajaxObj.nonce,
+      nonce: ajaxObj.nonce,
+      billing_id: billingId,
+    },
+    function (res) {
+      if (res.success) {
+        var printWin = window.open("", "_blank");
+        printWin.document.write(
+          "<!DOCTYPE html><html><head><title>Superbill - CREE Consejería</title>",
+        );
+        printWin.document.write(
+          "<style>@media print { .no-print { display: none; } }</style></head><body>",
+        );
+        printWin.document.write(
+          '<div class="no-print" style="text-align:right; margin-bottom:20px; padding:20px;"><button onclick="window.print()" style="padding:10px 20px; background:#2563eb; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">🖨️ Print / Save as PDF</button></div>',
+        );
+        printWin.document.write(res.data.html);
+        printWin.document.write("</body></html>");
+        printWin.document.close();
+      } else {
+        alert("Error generating Superbill.");
+      }
+    },
+  );
+}
+
+// Load Therapist Home Analytics Dashboard
+function creeLoadTherapistHome() {
+  jQuery(".cree-client-card").removeClass("active-client");
+  jQuery("#cree-profile-active-content").hide();
+  jQuery("#cree-home-dashboard-container")
+    .show()
+    .html(
+      '<p style="color: #6b7280; font-style: italic;">Calculating practice metrics...</p>',
+    );
+
+  jQuery.post(
+    CREE_NOTE_FORM.ajax_url,
+    {
+      action: "cree_load_therapist_dashboard",
+      security: CREE_NOTE_FORM.nonce,
+    },
+    function (res) {
+      if (res && res.success) {
+        jQuery("#cree-home-dashboard-container").html(res.data.html);
+      } else {
+        jQuery("#cree-home-dashboard-container").html(
+          '<p style="color:red;">Failed to load dashboard.</p>',
+        );
+      }
+    },
+  );
+}
+
+// Auto-load the dashboard when the portal boots up
+jQuery(document).ready(function ($) {
+  if ($("#cree-profile-main-panel").length > 0) {
+    creeLoadTherapistHome();
+  }
+});
+
+// Permanently Delete a Client Account
+function creeDeleteClient(clientId) {
+  var warning =
+    "CRITICAL WARNING: Are you absolutely sure you want to permanently delete this client?\n\n" +
+    "This will instantly destroy ALL their intake forms, session notes, appointments, treatment plans, and billing records.\n\n" +
+    "Type 'DELETE' in all caps to confirm:";
+
+  var confirmation = prompt(warning);
+
+  if (confirmation === "DELETE") {
+    jQuery
+      .post(
+        CREE_NOTE_FORM.ajax_url,
+        {
+          action: "cree_delete_client",
+          security: CREE_NOTE_FORM.nonce,
+          client_id: clientId,
+        },
+        function (res) {
+          if (res && res.success) {
+            alert(res.data);
+            location.reload(); // Reload the page to clear them from the sidebar directory
+          } else {
+            alert("Error: " + (res.data || "Could not delete client."));
+          }
+        },
+      )
+      .fail(function () {
+        alert("Server error while trying to delete client.");
+      });
+  } else if (confirmation !== null) {
+    alert("Deletion canceled. You must type 'DELETE' exactly.");
+  }
+}
+
+// Toggle Client Status (Active/Archived)
+function creeToggleClientStatus(clientId, newStatus) {
+  var actionText =
+    newStatus === "inactive" ? "archive this client" : "reactivate this client";
+  if (!confirm("Are you sure you want to " + actionText + "?")) return;
+
+  jQuery.post(
+    CREE_NOTE_FORM.ajax_url,
+    {
+      action: "cree_toggle_client_status",
+      security: CREE_NOTE_FORM.nonce,
+      client_id: clientId,
+      status: newStatus,
+    },
+    function (res) {
+      if (res && res.success) {
+        location.reload(); // Instantly reloads the page to visually move them between the Active/Archived lists
+      }
+    },
+  );
 }
