@@ -4,7 +4,7 @@
 * Plugin Name: CREE Consejeria CFM
 * Plugin URI: https://www.wordpress.org/cree-consejeria
 * Description: Sistema de Consejería y Formulario de Intake Encryptado
-* Version: 5.0.0
+* Version: 6.0.1
 * Requires at least: 5.6
 * Requires PHP: 7.0
 * Author: Rafael Ramírez Flores
@@ -117,13 +117,17 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             add_action( 'wp_ajax_cree_delete_emr_plan', array( $this, 'ajax_delete_emr_plan' ) );
 
+            add_action( 'wp_ajax_cree_save_billing', array( $this, 'ajax_save_billing' ) );
+            add_action( 'wp_ajax_cree_update_billing_status', array( $this, 'ajax_update_billing_status' ) );
+            add_action( 'wp_ajax_cree_generate_superbill', array( $this, 'ajax_generate_superbill' ) );
+
             add_action( 'plugins_loaded', array( $this, 'check_plugin_version' ) );
         }
 
         public function define_constants() {
             define( 'CREE_CONSEJERIA_CFM_PATH', plugin_dir_path( __FILE__ ) );
             define( 'CREE_CONSEJERIA_CFM_URL', plugin_dir_url( __FILE__ ) );
-            define( 'CREE_CONSEJERIA_CFM_VERSION', '5.0.0' );
+            define( 'CREE_CONSEJERIA_CFM_VERSION', '6.0.1' );
         }
 
         /**
@@ -143,6 +147,9 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             $goals_table        = $wpdb->prefix . 'cree_consejeria_treatment_goals';
             $plan_templates_table = $wpdb->prefix . 'cree_consejeria_plan_templates';
             $client_plans_table = $wpdb->prefix . 'cree_consejeria_client_plans';
+            $messages_table = $wpdb->prefix . 'cree_consejeria_secure_messages';
+            $billing_table = $wpdb->prefix . 'cree_consejeria_billing';
+
             $charset_collate  = $wpdb->get_charset_collate();
 
             $cree_consejeria_cfm_db_version = get_option( 'cree_consejeria_cfm_db_version' );
@@ -270,6 +277,53 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                     KEY therapist_id (therapist_id)
                 ) $charset_collate;";
                 dbDelta( $sql_client_plans );
+            }
+
+            // 10. v6.0 Secure Messaging & File Drop
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $messages_table ) ) !== $messages_table ) {
+                $sql_messages = "CREATE TABLE $messages_table (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    sender_id bigint(20) unsigned NOT NULL,
+                    receiver_id bigint(20) unsigned NOT NULL,
+                    message_encrypted blob NOT NULL,
+                    attachment_url varchar(255) DEFAULT NULL,
+                    is_read tinyint(1) DEFAULT 0,
+                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY sender_id (sender_id),
+                    KEY receiver_id (receiver_id),
+                    KEY is_read (is_read)
+                ) $charset_collate;";
+                dbDelta( $sql_messages );
+            }
+
+            // 11. v6.0 Billing & Superbills
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $billing_table ) ) !== $billing_table ) {
+                $sql_billing = "CREATE TABLE $billing_table (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    client_id bigint(20) unsigned NOT NULL,
+                    therapist_id bigint(20) unsigned NOT NULL,
+                    appointment_id bigint(20) unsigned DEFAULT NULL,
+                    amount decimal(10,2) NOT NULL,
+                    description varchar(255) NOT NULL,
+                    cpt_code varchar(20) DEFAULT NULL,
+                    status varchar(20) DEFAULT 'unpaid', /* unpaid, paid, void */
+                    superbill_generated tinyint(1) DEFAULT 0,
+                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                    paid_at datetime DEFAULT NULL,
+                    PRIMARY KEY (id),
+                    KEY client_id (client_id),
+                    KEY appointment_id (appointment_id),
+                    KEY status (status)
+                ) $charset_collate;";
+                dbDelta( $sql_billing );
+            }
+
+            // 12. v6.0 Telehealth Link Upgrade for Appointments
+            $appointments_table = $wpdb->prefix . 'cree_consejeria_appointments';
+            $row = $wpdb->get_results( "SHOW COLUMNS FROM {$appointments_table} LIKE 'telehealth_link'" );
+            if ( empty( $row ) ) {
+                $wpdb->query( "ALTER TABLE {$appointments_table} ADD telehealth_link varchar(255) DEFAULT NULL AFTER notes_encrypted" );
             }
 
             if ( empty( $cree_consejeria_cfm_db_version ) || version_compare( $cree_consejeria_cfm_db_version, '1.1.0', '<' ) ) {
@@ -927,6 +981,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             $appointment_date = isset( $_POST['appointment_date'] ) ? sanitize_text_field( $_POST['appointment_date'] ) : '';
             $duration_minutes = isset( $_POST['duration_minutes'] ) ? intval( $_POST['duration_minutes'] ) : 50;
             $notes            = isset( $_POST['notes'] ) ? sanitize_textarea_field( $_POST['notes'] ) : '';
+            $telehealth_link  = isset( $_POST['telehealth_link'] ) ? esc_url_raw( $_POST['telehealth_link'] ) : ''; // NEW
             
             // Recurrence logic
             $recurrence       = isset( $_POST['recurrence'] ) ? sanitize_text_field( $_POST['recurrence'] ) : 'none';
@@ -981,18 +1036,34 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                     }
                 }
 
+                // 3. EXECUTE DATABASE WRITE - No Link
+                // if ( $appointment_id > 0 ) {
+                //     $result = $wpdb->query( $wpdb->prepare(
+                //         "UPDATE {$table_name} SET appointment_date = %s, duration_minutes = %d, notes_encrypted = AES_ENCRYPT(%s, %s) WHERE id = %d",
+                //         $current_appt_date, $duration_minutes, $notes, $encryption_key, $appointment_id
+                //     ) );
+                //     $success_msg = 'Appointment successfully updated.';
+                // } else {
+                //     $result = $wpdb->query( $wpdb->prepare(
+                //         "INSERT INTO {$table_name} (client_id, therapist_id, appointment_date, duration_minutes, status, notes_encrypted, series_id)
+                //          VALUES (%d, %d, %s, %d, 'scheduled', AES_ENCRYPT(%s, %s), %s)",
+                //         $client_id, $therapist_id, $current_appt_date, $duration_minutes, $notes, $encryption_key, $series_id
+                //     ) );
+                //     $success_msg = ($recurrence_count > 1) ? $recurrence_count . ' recurring appointments scheduled successfully.' : 'Appointment successfully scheduled.';
+                // }
+
                 // 3. EXECUTE DATABASE WRITE
                 if ( $appointment_id > 0 ) {
                     $result = $wpdb->query( $wpdb->prepare(
-                        "UPDATE {$table_name} SET appointment_date = %s, duration_minutes = %d, notes_encrypted = AES_ENCRYPT(%s, %s) WHERE id = %d",
-                        $current_appt_date, $duration_minutes, $notes, $encryption_key, $appointment_id
+                        "UPDATE {$table_name} SET appointment_date = %s, duration_minutes = %d, notes_encrypted = AES_ENCRYPT(%s, %s), telehealth_link = %s WHERE id = %d",
+                        $current_appt_date, $duration_minutes, $notes, $encryption_key, $telehealth_link, $appointment_id
                     ) );
                     $success_msg = 'Appointment successfully updated.';
                 } else {
                     $result = $wpdb->query( $wpdb->prepare(
-                        "INSERT INTO {$table_name} (client_id, therapist_id, appointment_date, duration_minutes, status, notes_encrypted, series_id)
-                         VALUES (%d, %d, %s, %d, 'scheduled', AES_ENCRYPT(%s, %s), %s)",
-                        $client_id, $therapist_id, $current_appt_date, $duration_minutes, $notes, $encryption_key, $series_id
+                        "INSERT INTO {$table_name} (client_id, therapist_id, appointment_date, duration_minutes, status, notes_encrypted, series_id, telehealth_link)
+                         VALUES (%d, %d, %s, %d, 'scheduled', AES_ENCRYPT(%s, %s), %s, %s)",
+                        $client_id, $therapist_id, $current_appt_date, $duration_minutes, $notes, $encryption_key, $series_id, $telehealth_link
                     ) );
                     $success_msg = ($recurrence_count > 1) ? $recurrence_count . ' recurring appointments scheduled successfully.' : 'Appointment successfully scheduled.';
                 }
@@ -1630,6 +1701,55 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                 ) $charset_collate;";
                 dbDelta( $sql_client_plans );
             }
+
+            // 10. v6.0 Secure Messaging & File Drop
+            $messages_table = $wpdb->prefix . 'cree_consejeria_secure_messages';
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $messages_table ) ) !== $messages_table ) {
+                $sql_messages = "CREATE TABLE $messages_table (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    sender_id bigint(20) unsigned NOT NULL,
+                    receiver_id bigint(20) unsigned NOT NULL,
+                    message_encrypted blob NOT NULL,
+                    attachment_url varchar(255) DEFAULT NULL,
+                    is_read tinyint(1) DEFAULT 0,
+                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (id),
+                    KEY sender_id (sender_id),
+                    KEY receiver_id (receiver_id),
+                    KEY is_read (is_read)
+                ) $charset_collate;";
+                dbDelta( $sql_messages );
+            }
+
+            // 11. v6.0 Billing & Superbills
+            $billing_table = $wpdb->prefix . 'cree_consejeria_billing';
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $billing_table ) ) !== $billing_table ) {
+                $sql_billing = "CREATE TABLE $billing_table (
+                    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                    client_id bigint(20) unsigned NOT NULL,
+                    therapist_id bigint(20) unsigned NOT NULL,
+                    appointment_id bigint(20) unsigned DEFAULT NULL,
+                    amount decimal(10,2) NOT NULL,
+                    description varchar(255) NOT NULL,
+                    cpt_code varchar(20) DEFAULT NULL,
+                    status varchar(20) DEFAULT 'unpaid', /* unpaid, paid, void */
+                    superbill_generated tinyint(1) DEFAULT 0,
+                    created_at timestamp DEFAULT CURRENT_TIMESTAMP,
+                    paid_at datetime DEFAULT NULL,
+                    PRIMARY KEY (id),
+                    KEY client_id (client_id),
+                    KEY appointment_id (appointment_id),
+                    KEY status (status)
+                ) $charset_collate;";
+                dbDelta( $sql_billing );
+            }
+
+            // 12. v6.0 Telehealth Link Upgrade for Appointments
+            $appointments_table = $wpdb->prefix . 'cree_consejeria_appointments';
+            $row = $wpdb->get_results( "SHOW COLUMNS FROM {$appointments_table} LIKE 'telehealth_link'" );
+            if ( empty( $row ) ) {
+                $wpdb->query( "ALTER TABLE {$appointments_table} ADD telehealth_link varchar(255) DEFAULT NULL AFTER notes_encrypted" );
+            }
         }
 
         public function check_plugin_version() {
@@ -1840,12 +1960,23 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             // 4. Fetch Appointments with duration data
             $appointments_table = $wpdb->prefix . 'cree_consejeria_appointments';
+            //No telehealth link
+            // $appointments = $wpdb->get_results( $wpdb->prepare(
+            //     "SELECT id, appointment_date, duration_minutes, status, CAST(AES_DECRYPT(notes_encrypted, %s) AS CHAR) AS decrypted_notes
+            //      FROM {$appointments_table} WHERE client_id = %d ORDER BY appointment_date DESC",
+            //     $encryption_key,
+            //     $client_id
+            // ) );
+
             $appointments = $wpdb->get_results( $wpdb->prepare(
-                "SELECT id, appointment_date, duration_minutes, status, CAST(AES_DECRYPT(notes_encrypted, %s) AS CHAR) AS decrypted_notes
+                "SELECT id, appointment_date, duration_minutes, status, telehealth_link, CAST(AES_DECRYPT(notes_encrypted, %s) AS CHAR) AS decrypted_notes
                  FROM {$appointments_table} WHERE client_id = %d ORDER BY appointment_date DESC",
-                $encryption_key,
-                $client_id
+                $encryption_key, $client_id
             ) );
+
+            // 5. Fetch Billing Records
+            $billing_table = $wpdb->prefix . 'cree_consejeria_billing';
+            $billings = $wpdb->get_results( $wpdb->prepare("SELECT * FROM {$billing_table} WHERE client_id = %d ORDER BY created_at DESC", $client_id) );
 
             // Split into Upcoming and Past
             $upcoming_appts = array();
@@ -1880,6 +2011,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                 <button class="cree-prof-tab" onclick="creeSwitchProfileTab(event, 'prof-notes')">📝 Session Notes</button>
                 <button class="cree-prof-tab" onclick="creeSwitchProfileTab(event, 'prof-appointments')">📅 Appointments</button>
                 <button class="cree-prof-tab" onclick="creeSwitchProfileTab(event, 'prof-treatment-plan')">🎯 Treatment Plan</button>
+                <button class="cree-prof-tab" onclick="creeSwitchProfileTab(event, 'prof-billing')">💳 Billing</button>
             </div>
 
             <!-- TAB 1: FORMS -->
@@ -2023,7 +2155,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                         <input type="hidden" name="client_id" value="<?php echo intval( $client_id ); ?>">
                         <input type="hidden" name="appointment_id" id="edit_appointment_id" value="">
                         
-                        <div style="display:grid; grid-template-columns: 1fr 120px 1fr; gap:15px; margin-bottom:10px;">
+                        <div style="display:grid; grid-template-columns: 1fr 120px 1fr 1fr; gap:15px; margin-bottom:10px;">
                             <div>
                                 <label style="display:block; font-size:12px; font-weight:bold;">Date & Time:</label>
                                 <input type="datetime-local" name="appointment_date" style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;" required>
@@ -2038,7 +2170,11 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                             </div>
                             <div>
                                 <label style="display:block; font-size:12px; font-weight:bold;">Notes (Optional):</label>
-                                <input type="text" name="notes" placeholder="Room #, or link..." style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;">
+                                <input type="text" name="notes" placeholder="Room #..." style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;">
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:12px; font-weight:bold;">Video Link (Optional):</label>
+                                <input type="url" name="telehealth_link" placeholder="https://zoom.us/j/..." style="width:100%; padding:6px; border-radius:4px; border:1px solid #d1d5db;">
                             </div>
                         </div>
 
@@ -2084,15 +2220,22 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                             ?>
                                 <tr>
                                     <!-- <td style="padding:8px; font-weight:bold;"><?php echo esc_html( wp_date( 'F j, Y \a\t g:i a', strtotime( $a->appointment_date ) ) ); ?></td> -->
-                                    <td style="padding:8px; font-weight:bold;"><?php echo esc_html( wp_date( 'F j, Y \a\t g:i a T', strtotime( $a->appointment_date ) ) ); ?></td>
+                                    <td style="padding:8px; font-weight:bold;">
+                                        <?php echo esc_html( wp_date( 'F j, Y \a\t g:i a T', strtotime( $a->appointment_date ) ) ); ?>
+                                        <?php if ( ! empty( $a->telehealth_link ) ) : ?>
+                                            <br><a href="<?php echo esc_url( $a->telehealth_link ); ?>" target="_blank" style="font-size:11px; color:#2563eb; text-decoration:none;">🎥 Join Video</a>
+                                        <?php endif; ?>
+                                    </td>
+                                    
                                     <td style="padding:8px;"><?php echo intval( $a->duration_minutes ); ?>m</td>
                                     <td style="padding:8px;"><?php echo esc_html( $a->decrypted_notes ? $a->decrypted_notes : '-' ); ?></td>
+
                                     <td style="padding:8px;">
                                         <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'completed')" style="background:#10b981; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">✔️ Complete</button>
-                                        <button type="button" onclick="creeEditAppointment(<?php echo intval( $a->id ); ?>, '<?php echo esc_js($js_date); ?>', <?php echo intval($a->duration_minutes); ?>, '<?php echo esc_js($a->decrypted_notes); ?>')" style="background:#3b82f6; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">✏️ Edit</button>
-                                        <!-- <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'cancelled')" style="background:#ef4444; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">🚫 Cancel</button> -->
-                                         <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'cancelled')" style="background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">🚫 Cancel</button>
+                                        <button type="button" onclick="creeEditAppointment(<?php echo intval( $a->id ); ?>, '<?php echo esc_js($js_date); ?>', <?php echo intval($a->duration_minutes); ?>, '<?php echo esc_js($a->decrypted_notes); ?>', '<?php echo esc_js($a->telehealth_link); ?>')" style="background:#3b82f6; color:#fff; border:none; padding:3px 6px; border-radius:3px; cursor:pointer; font-size:11px;">✏️ Edit</button>
+                                        <button type="button" onclick="creeUpdateAppointmentStatus(<?php echo intval( $a->id ); ?>, 'cancelled')" style="background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">❌ Cancel</button>
                                     </td>
+
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -2163,6 +2306,68 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                 <div id="cree-client-plans-history">
                     <p style="font-style:italic; color:#6b7280;">Loading saved plans...</p>
                 </div>
+            </div>
+
+            <!-- TAB 5: BILLING & SUPERBILLS -->
+            <div id="prof-billing" class="cree-prof-content" style="display: none;">
+                <div style="background: #f9fafb; padding: 20px; border-radius: 6px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                    <h4 style="margin-top:0; color: #1e3a8a;">Add New Charge</h4>
+                    <form id="cree-add-billing-form" style="display: grid; grid-template-columns: 1fr 1fr 120px 150px; gap: 15px; align-items: end;">
+                        <input type="hidden" name="client_id" value="<?php echo intval( $client_id ); ?>">
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:bold;">Description (e.g., 50 Min Session):</label>
+                            <input type="text" name="description" required style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:bold;">CPT Code (Optional):</label>
+                            <input type="text" name="cpt_code" placeholder="90834" style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:bold;">Amount ($):</label>
+                            <input type="number" step="0.01" name="amount" required style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:4px;">
+                        </div>
+                        <button type="submit" style="background:#10b981; color:#fff; border:none; padding:10px 14px; border-radius:4px; font-weight:bold; cursor:pointer;">➕ Add Charge</button>
+                    </form>
+                </div>
+
+                <h4 style="color: #4b5563; margin-bottom: 10px;">Billing History & Superbills</h4>
+                <?php if ( empty( $billings ) ) : ?>
+                    <p style="font-style:italic; color:#6b7280;">No billing records found.</p>
+                <?php else : ?>
+                    <table class="widefat striped" style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="background:#f3f4f6;">
+                                <th style="padding:10px; text-align:left;">Date</th>
+                                <th style="padding:10px; text-align:left;">Description</th>
+                                <th style="padding:10px; text-align:left;">CPT</th>
+                                <th style="padding:10px; text-align:left;">Amount</th>
+                                <th style="padding:10px; text-align:left;">Status</th>
+                                <th style="padding:10px; text-align:left;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ( $billings as $b ) : ?>
+                                <tr>
+                                    <td style="padding:10px;"><strong><?php echo wp_date('M j, Y', strtotime($b->created_at)); ?></strong></td>
+                                    <td style="padding:10px;"><?php echo esc_html($b->description); ?></td>
+                                    <td style="padding:10px;"><?php echo esc_html($b->cpt_code ? $b->cpt_code : '-'); ?></td>
+                                    <td style="padding:10px;">$<?php echo number_format($b->amount, 2); ?></td>
+                                    <td style="padding:10px;">
+                                        <span style="padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; text-transform: uppercase; <?php echo $b->status === 'paid' ? 'background:#d1fae5; color:#065f46;' : 'background:#fee2e2; color:#991b1b;'; ?>">
+                                            <?php echo esc_html($b->status); ?>
+                                        </span>
+                                    </td>
+                                    <td style="padding:10px;">
+                                        <?php if ( $b->status === 'unpaid' ) : ?>
+                                            <button type="button" onclick="creeUpdateBillingStatus(<?php echo $b->id; ?>, 'paid')" style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px; margin-right:4px;">💰 Mark Paid</button>
+                                        <?php endif; ?>
+                                        <button type="button" onclick="creeGenerateSuperbill(<?php echo $b->id; ?>)" style="background:#4b5563; color:#fff; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px;">🖨️ Superbill</button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
             </div>
 
             <?php
@@ -3468,6 +3673,130 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             }
         }
 
+        /**
+         * AJAX: Save New Billing Charge
+         */
+        public function ajax_save_billing() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            $client_id = intval( $_POST['client_id'] );
+            $amount = floatval( $_POST['amount'] );
+            $description = sanitize_text_field( $_POST['description'] );
+            $cpt_code = sanitize_text_field( $_POST['cpt_code'] );
+            
+            if ( ! $client_id || ! $amount ) wp_send_json_error( array( 'message' => 'Client ID and Amount are required.' ) );
+
+            global $wpdb;
+            $wpdb->insert( $wpdb->prefix . 'cree_consejeria_billing', array(
+                'client_id'    => $client_id,
+                'therapist_id' => get_current_user_id(),
+                'amount'       => $amount,
+                'description'  => $description,
+                'cpt_code'     => $cpt_code,
+                'status'       => 'unpaid'
+            ) );
+            
+            wp_send_json_success( array( 'message' => 'Charge added successfully.' ) );
+        }
+
+        /**
+         * AJAX: Update Billing Status (Paid/Void)
+         */
+        public function ajax_update_billing_status() {
+            check_ajax_referer( 'cree_secure_note_nonce', 'security' );
+            if ( ! current_user_can( 'edit_posts' ) ) wp_send_json_error( array( 'message' => 'Unauthorized' ) );
+
+            $billing_id = intval( $_POST['billing_id'] );
+            $status = sanitize_text_field( $_POST['status'] );
+            $paid_at = ($status === 'paid') ? current_time('mysql') : null;
+
+            global $wpdb;
+            $wpdb->update( 
+                $wpdb->prefix . 'cree_consejeria_billing', 
+                array( 'status' => $status, 'paid_at' => $paid_at ), 
+                array( 'id' => $billing_id ) 
+            );
+            wp_send_json_success( array( 'message' => 'Status updated successfully.' ) );
+        }
+
+        /**
+         * AJAX: Generate Superbill HTML for Printing
+         */
+        public function ajax_generate_superbill() {
+            if ( isset( $_POST['security'] ) ) { check_ajax_referer( 'cree_secure_note_nonce', 'security' ); } 
+            elseif ( isset( $_POST['nonce'] ) ) { check_ajax_referer( 'cree_secure_form_submission', 'nonce' ); } 
+            else { wp_send_json_error(); }
+
+            $billing_id = intval( $_POST['billing_id'] );
+            global $wpdb;
+            $billing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}cree_consejeria_billing WHERE id = %d", $billing_id ) );
+            if ( ! $billing ) wp_send_json_error( array( 'message' => 'Record not found.' ) );
+
+            $client = get_userdata( $billing->client_id );
+            $therapist = get_userdata( $billing->therapist_id );
+            
+            // Try to find a DOB from the intake records
+            $dob = $wpdb->get_var($wpdb->prepare("SELECT dob FROM {$wpdb->prefix}cree_consejeria_client_forms_master WHERE wp_id = %d LIMIT 1", $billing->client_id));
+            $dob = $dob ? wp_date('m/d/Y', strtotime($dob)) : 'N/A';
+
+            ob_start();
+            ?>
+            <div style="font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; padding: 40px; line-height: 1.5;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
+                    <div>
+                        <h1 style="margin: 0; color: #1e3a8a; font-size: 24px;">CREE Consejería</h1>
+                        <p style="margin: 5px 0 0 0; font-size: 14px;">1219 E Broadway St., Sweetwater, TX 79556</p>
+                        <p style="margin: 0; font-size: 14px;">Phone: 325-219-4039</p>
+                        <p style="margin: 0; font-size: 14px;">Provider: <?php echo esc_html($therapist->display_name); ?> (LPC-A #90612)</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h2 style="margin: 0; font-size: 28px; color: #4b5563;">SUPERBILL</h2>
+                        <p style="margin: 5px 0 0 0;"><strong>Date:</strong> <?php echo wp_date('m/d/Y', strtotime($billing->created_at)); ?></p>
+                        <p style="margin: 0;"><strong>Invoice #:</strong> INV-<?php echo 1000 + $billing->id; ?></p>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
+                    <div>
+                        <h3 style="margin: 0 0 5px 0; font-size: 16px;">Patient Information:</h3>
+                        <p style="margin: 0;"><strong>Name:</strong> <?php echo esc_html($client->display_name); ?></p>
+                        <p style="margin: 0;"><strong>DOB:</strong> <?php echo esc_html($dob); ?></p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h3 style="margin: 0 0 5px 0; font-size: 16px;">Account Status:</h3>
+                        <p style="margin: 0; font-weight: bold; color: <?php echo $billing->status === 'paid' ? '#10b981' : '#dc2626'; ?>;">
+                            <?php echo strtoupper($billing->status); ?>
+                        </p>
+                    </div>
+                </div>
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+                    <thead>
+                        <tr style="background: #f3f4f6; text-align: left;">
+                            <th style="padding: 12px; border: 1px solid #d1d5db;">Date of Service</th>
+                            <th style="padding: 12px; border: 1px solid #d1d5db;">Description</th>
+                            <th style="padding: 12px; border: 1px solid #d1d5db;">CPT Code</th>
+                            <th style="padding: 12px; border: 1px solid #d1d5db; text-align: right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="padding: 12px; border: 1px solid #d1d5db;"><?php echo wp_date('m/d/Y', strtotime($billing->created_at)); ?></td>
+                            <td style="padding: 12px; border: 1px solid #d1d5db;"><?php echo esc_html($billing->description); ?></td>
+                            <td style="padding: 12px; border: 1px solid #d1d5db;"><?php echo esc_html($billing->cpt_code ? $billing->cpt_code : 'N/A'); ?></td>
+                            <td style="padding: 12px; border: 1px solid #d1d5db; text-align: right;">$<?php echo number_format($billing->amount, 2); ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="text-align: center; color: #6b7280; font-size: 12px; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                    This document serves as a receipt for services rendered. It may be submitted to your insurance carrier for out-of-network reimbursement.
+                </div>
+            </div>
+            <?php
+            wp_send_json_success( array( 'html' => ob_get_clean() ) );
+        }
+
         private function get_encryption_key() {
             $key = get_option( 'cree_consejeria_encryption_key' );
             if ( ! $key ) {
@@ -3516,7 +3845,9 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                 $wpdb->prefix . 'cree_consejeria_schedule_exceptions',
                 $wpdb->prefix . 'cree_consejeria_appointment_requests',
                 $wpdb->prefix . 'cree_consejeria_plan_templates',
-                $wpdb->prefix . 'cree_consejeria_client_plans'
+                $wpdb->prefix . 'cree_consejeria_client_plans',
+                $wpdb->prefix . 'cree_consejeria_secure_message',
+                $wpdb->prefix . 'cree_consejeria_billing'
             );
 
             foreach ( $tables_to_drop as $table ) {

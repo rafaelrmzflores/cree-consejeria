@@ -268,6 +268,7 @@ function creeEditAppointment(id, dateStr, duration, notes) {
     jQuery('#cree-profile-add-appt input[name="appointment_date"]').val(dateStr);
     jQuery('#cree-profile-add-appt select[name="duration_minutes"]').val(duration);
     jQuery('#cree-profile-add-appt input[name="notes"]').val(notes);
+    jQuery('#cree-profile-add-appt input[name="telehealth_link"]').val(telehealthLink);
     
     jQuery('#cree-appt-form-title').text('Edit Appointment');
     jQuery('#cree-appt-submit-btn').text('💾 Update Session');

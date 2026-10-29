@@ -396,3 +396,61 @@ function creeDeleteTreatmentPlan(planId) {
       });
   }
 }
+
+// Submit New Billing Charge
+jQuery(document).on('submit', '#cree-add-billing-form', function(e) {
+    e.preventDefault();
+    var $btn = jQuery(this).find('button[type="submit"]');
+    $btn.prop('disabled', true).text('Saving...');
+    
+    jQuery.post(CREE_NOTE_FORM.ajax_url, jQuery(this).serialize() + '&action=cree_save_billing&security=' + CREE_NOTE_FORM.nonce, function(res) {
+        if (res.success) {
+            var clientId = jQuery('input[name="client_id"]').val();
+            creeSelectClient(clientId, jQuery('.cree-client-card.active-client'), 'prof-billing'); // Refresh tab
+        } else {
+            alert(res.data.message || 'Error saving charge.');
+            $btn.prop('disabled', false).text('➕ Add Charge');
+        }
+    });
+});
+
+// Update Billing Status (Mark Paid)
+function creeUpdateBillingStatus(billingId, status) {
+    if (!confirm('Mark this charge as ' + status + '?')) return;
+    jQuery.post(CREE_NOTE_FORM.ajax_url, {
+        action: 'cree_update_billing_status',
+        security: CREE_NOTE_FORM.nonce,
+        billing_id: billingId,
+        status: status
+    }, function(res) {
+        if (res.success) {
+            var clientId = jQuery('input[name="client_id"]').val();
+            creeSelectClient(clientId, jQuery('.cree-client-card.active-client'), 'prof-billing'); // Refresh tab
+        }
+    });
+}
+
+// Generate & Print Superbill
+function creeGenerateSuperbill(billingId) {
+    // Determine which ajax object to use based on where we are (Therapist Portal vs Client Portal)
+    var ajaxObj = typeof CREE_NOTE_FORM !== 'undefined' ? CREE_NOTE_FORM : CREE_INTAKE_FORM;
+    
+    jQuery.post(ajaxObj.ajax_url, {
+        action: 'cree_generate_superbill',
+        security: ajaxObj.nonce,
+        nonce: ajaxObj.nonce,
+        billing_id: billingId
+    }, function(res) {
+        if (res.success) {
+            var printWin = window.open('', '_blank');
+            printWin.document.write('<!DOCTYPE html><html><head><title>Superbill - CREE Consejería</title>');
+            printWin.document.write('<style>@media print { .no-print { display: none; } }</style></head><body>');
+            printWin.document.write('<div class="no-print" style="text-align:right; margin-bottom:20px; padding:20px;"><button onclick="window.print()" style="padding:10px 20px; background:#2563eb; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">🖨️ Print / Save as PDF</button></div>');
+            printWin.document.write(res.data.html);
+            printWin.document.write('</body></html>');
+            printWin.document.close();
+        } else {
+            alert('Error generating Superbill.');
+        }
+    });
+}
