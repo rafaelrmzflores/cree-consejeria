@@ -92,7 +92,7 @@ class CREE_Consejeria_Client_Portal {
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <!-- Logo Image -->
                     <!-- <img src="<?php echo esc_url( plugins_url( 'assets/images/cree-logo-azul.png', dirname(__FILE__) ) ); ?>" alt="CREE Consejería Logo" style="max-height: 60px; width: auto; background: #fff; padding: 5px; border-radius: 6px;"> -->
-                    <img src="<?php echo esc_url( plugins_url( 'assets/images/cree-logo-azul.png', dirname(__FILE__) ) ); ?>" alt="CREE Consejería Logo" style="max-height: 125px; width: auto;">
+                    <img src="<?php echo esc_url( plugins_url( 'assets/images/cree-logo-celeste.png', dirname(__FILE__) ) ); ?>" alt="CREE Consejería Logo" style="max-height: 125px; width: auto;">
 
                     <div>
                         <h2 style="margin:0; font-size:22px; color:#fff;"><span class="cree-bilingual-text" data-en="Welcome," data-es="Bienvenido(a),">Welcome,</span> <?php echo esc_html( $current_user->display_name ); ?></h2>
