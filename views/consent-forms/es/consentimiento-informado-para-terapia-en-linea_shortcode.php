@@ -26,7 +26,7 @@ $user_email   = ( $current_user->exists() ) ? $current_user->user_email : '';
         <div class="therapist-badge-info" style="background: #f7f9fa; border-left: 4px solid #0056b3; padding: 15px; margin-bottom: 25px; font-size: 0.9em; color: #555;">
             <strong>Terapeuta:</strong> Rafael Ramírez (Licencia LPC-A #906126)<br>
             <strong>Centro:</strong> CREE Consejeria <br>
-            <strong>Contacto:</strong> (325) 219-4039
+            <strong>Contacto:</strong> +1 (325) 2276-2476
         </div>
 
         <h2>Términos del Servicio de Telemedicina</h2>

@@ -15,7 +15,6 @@ if ( ! class_exists( 'CREE_Consejeria_Form_Shortcode' ) ) {
 
         public function render_form_shortcode( $atts ) 
         {
-
             // 1. Safely handle shortcode attributes and set a default 'type'
             $attributes = shortcode_atts(
                 array(
@@ -53,35 +52,58 @@ if ( ! class_exists( 'CREE_Consejeria_Form_Shortcode' ) ) {
                 }
             }
 
-            // Maps the 'type' attribute to a specific file in the /views/ folder
+            // Maps 'type' attribute to subfolder paths inside /views/
             $view_map = [
-                'registration_short_form'                        => 'client-registration-short-form_shortcode.php',
-                'psychosocial_evaluation'                        => 'psychosocial-evaluation_shortcode.php',
-                'substance_abuse_intake'                         => 'substance-abuse-intake_shortcode.php',
-                'aviso_de_practicas_de_privacidad'               => 'aviso-de-practicas-de-privacidad_shortcode.php',
-                'consentimiento_informado_para_psicoterapia'     => 'consentimiento-informado-para-psicoterapia_shortcode.php',
-                'politicas_de_la_practica'                       => 'politicas-de-la-practica_shortcode.php',
-                'consentimiento_informado_para_terapia_en_linea' => 'consentimiento-informado-para-terapia-en-linea_shortcode.php',
-                'consentimiento_para_divulgacion_de_informacion' => 'consentimiento-para-divulgacion-de-informacion_shortcode.php'
+                // ==========================================
+                // INTAKE FORMS
+                // ==========================================
+                'registration_short_form'                        => 'intake-forms/client-registration-short-form_shortcode.php',
+                'psychosocial_evaluation'                        => 'intake-forms/psychosocial-evaluation_shortcode.php',
+                'substance_abuse_intake'                         => 'intake-forms/substance-abuse-intake_shortcode.php',
+                
+                // ==========================================
+                // PRIVACY FORMS (SPANISH)
+                // ==========================================
+                'aviso_de_practicas_de_privacidad'               => 'privacy-forms/es/aviso-de-practicas-de-privacidad_shortcode.php',
+                'politicas_de_la_practica'                       => 'privacy-forms/es/politicas-de-la-practica_shortcode.php',
+
+                // ==========================================
+                // PRIVACY FORMS (ENGLISH)
+                // ==========================================
+                'notice_of_privacy_practices'                   => 'privacy-forms/en/notice-of-privacy-practices_shortcode.php',
+                'practice_policies'                             => 'privacy-forms/en/practice-policies_shortcode.php',
+                
+                // ==========================================
+                // CONSENT FORMS (SPANISH)
+                // ==========================================
+                'consentimiento_informado_para_psicoterapia'     => 'consent-forms/es/consentimiento-informado-para-psicoterapia_shortcode.php',
+                'consentimiento_informado_para_terapia_en_linea' => 'consent-forms/es/consentimiento-informado-para-terapia-en-linea_shortcode.php',
+                'consentimiento_para_divulgacion_de_informacion' => 'consent-forms/es/consentimiento-para-divulgacion-de-informacion_shortcode.php',
+                
+                // ==========================================
+                // CONSENT FORMS (ENGLISH)
+                // ==========================================
+                'informed_consent_for_psychotherapy'             => 'consent-forms/en/informed-consent-for-psychoptherapy_shortcode.php',
+                'informed_consent_for_online_therapy'            => 'consent-forms/en/informed-consent-for-online-therapy_shortcode.php',
+                'informed_consent_for_release_of_information'    => 'consent-forms/en/informed-consent-for-release-of-information_shortcode.php'
             ];
 
             wp_enqueue_style( 'cree-consejeria-form-styles-css' );
-
             wp_enqueue_script( 'cree-consejeria-form-handler-js' );
 
             // Fallback to default if the provided type doesn't exist in our map
-            $filename = isset( $view_map[$form_type] ) ? $view_map[$form_type] : $view_map['registration_short_form'];
+            $relative_path = isset( $view_map[$form_type] ) ? $view_map[$form_type] : $view_map['registration_short_form'];
             
-            $view_path = CREE_CONSEJERIA_CFM_PATH . 'views/' . $filename;
+            $view_path = CREE_CONSEJERIA_CFM_PATH . 'views/' . $relative_path;
 
             // 2. Capture the included file template using output buffering
             if ( file_exists( $view_path ) ) {
                 ob_start();
                 include $view_path;
-                return ob_get_clean(); // Returns the HTML content to WordPress to place correctly
+                return ob_get_clean();
             }
 
-            return ''; // Return nothing if the file somehow wasn't found
+            return ''; // Return nothing if the file wasn't found
         }
 
     }

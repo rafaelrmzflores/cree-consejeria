@@ -70,40 +70,69 @@ class CREE_Consejeria_Client_Portal {
 
         ob_start();
         ?>
-        <div class="cree-form-container" id="cree-client-portal-wrapper" style="max-width:900px; margin:0 auto; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 
+        <style>
+            /* Prevent English text from flashing during page and form loads */
+            .cree-is-translating .cree-bilingual-text,
+            .cree-is-translating .cree-bilingual-placeholder {
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
+            .cree-bilingual-text, .cree-bilingual-placeholder {
+                transition: opacity 0.15s ease-in-out;
+            }
+        </style>
+
+        <!-- <div class="cree-form-container" id="cree-client-portal-wrapper" style="max-width:900px; margin:0 auto; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"> -->
+        <div class="cree-form-container cree-is-translating" id="cree-client-portal-wrapper" style="max-width:900px; margin:0 auto; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
             <!-- HEADER -->
-            <div style="background:#1e3a8a; color:#fff; padding:20px; border-radius:8px 8px 0 0; margin-bottom: 20px;">
-                <h2 style="margin:0; font-size:22px; color:#fff;">Welcome, <?php echo esc_html( $current_user->display_name ); ?></h2>
-                <p style="margin:5px 0 0 0; font-size:14px; opacity:0.9;">Manage your forms, appointments, and billing securely.</p>
+            <div style="background:#1e3a8a; color:#fff; padding:20px; border-radius:8px 8px 0 0; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start;">
+                
+                <!-- LOGO AND WELCOME TEXT -->
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <!-- Logo Image -->
+                    <!-- <img src="<?php echo esc_url( plugins_url( 'assets/images/cree-logo-azul.png', dirname(__FILE__) ) ); ?>" alt="CREE Consejería Logo" style="max-height: 60px; width: auto; background: #fff; padding: 5px; border-radius: 6px;"> -->
+                    <img src="<?php echo esc_url( plugins_url( 'assets/images/cree-logo-azul.png', dirname(__FILE__) ) ); ?>" alt="CREE Consejería Logo" style="max-height: 125px; width: auto;">
+
+                    <div>
+                        <h2 style="margin:0; font-size:22px; color:#fff;"><span class="cree-bilingual-text" data-en="Welcome," data-es="Bienvenido(a),">Welcome,</span> <?php echo esc_html( $current_user->display_name ); ?></h2>
+                        <p class="cree-bilingual-text" data-en="Manage your forms, appointments, and billing securely." data-es="Administre sus formularios, citas y facturación de forma segura." style="margin:5px 0 0 0; font-size:14px; opacity:0.9;">Manage your forms, appointments, and billing securely.</p>
+                    </div>
+                </div>
+                
+                <!-- LANGUAGE TOGGLE -->
+                <div style="background: rgba(255,255,255,0.2); padding: 4px; border-radius: 20px; display: flex; gap: 4px;">
+                    <button type="button" class="cree-lang-btn active" data-lang="en" style="border: none; background: #fff; padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: bold; cursor: pointer; color: #1e3a8a; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">EN</button>
+                    <button type="button" class="cree-lang-btn" data-lang="es" style="border: none; background: transparent; padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: bold; cursor: pointer; color: #fff;">ES</button>
+                </div>
             </div>
 
             <!-- TAB NAVIGATION -->
             <div style="border-bottom: 2px solid #e5e7eb; margin-bottom: 20px; display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px;">
-                <button class="cree-client-nav-btn active" onclick="creeSwitchClientTab(event, 'client-tab-forms')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: bold; cursor: pointer; white-space: nowrap;">📋 My Forms</button>
-                <button class="cree-client-nav-btn" onclick="creeSwitchClientTab(event, 'client-tab-appointments')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">📅 Appointments</button>
-                <button class="cree-client-nav-btn" onclick="creeSwitchClientTab(event, 'client-tab-plan')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">🎯 Treatment Plan</button>
-                <button class="cree-client-nav-btn" onclick="creeSwitchClientTab(event, 'client-tab-billing')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">💳 Billing</button>
-                <button class="cree-client-nav-btn" onclick="creeSwitchClientTab(event, 'client-tab-settings')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">⚙️ Settings</button>
+                <button class="cree-client-nav-btn active cree-bilingual-text" data-en="📋 My Forms" data-es="📋 Mis Formularios" onclick="creeSwitchClientTab(event, 'client-tab-forms')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: bold; cursor: pointer; white-space: nowrap;">📋 My Forms</button>
+                <button class="cree-client-nav-btn cree-bilingual-text" data-en="📅 Appointments" data-es="📅 Citas" onclick="creeSwitchClientTab(event, 'client-tab-appointments')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">📅 Appointments</button>
+                <button class="cree-client-nav-btn cree-bilingual-text" data-en="🎯 Treatment Plan" data-es="🎯 Plan de Tratamiento" onclick="creeSwitchClientTab(event, 'client-tab-plan')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">🎯 Treatment Plan</button>
+                <button class="cree-client-nav-btn cree-bilingual-text" data-en="💳 Billing" data-es="💳 Facturación" onclick="creeSwitchClientTab(event, 'client-tab-billing')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">💳 Billing</button>
+                <button class="cree-client-nav-btn cree-bilingual-text" data-en="⚙️ Settings" data-es="⚙️ Ajustes" onclick="creeSwitchClientTab(event, 'client-tab-settings')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">⚙️ Settings</button>
             </div>
 
             <!-- TAB 1: FORMS -->
             <div id="client-tab-forms" class="cree-client-tab-content">
                 <div id="cree-client-form-list-view">
                     <div style="background:#fff; border:1px solid #e5e7eb; padding:20px; border-radius:8px;">
-                        <h3 style="margin-top:0; color:#1f2937;">Assigned Intake & Consent Documents</h3>
+                        <h3 class="cree-bilingual-text" data-en="Assigned Intake & Consent Documents" data-es="Documentos de Admisión y Consentimiento Asignados" style="margin-top:0; color:#1f2937;">Assigned Intake & Consent Documents</h3>
                         <?php if ( empty( $assigned_forms ) && empty( $completed_forms ) ) : ?>
                             <div style="background:#f0f6fc; border-left:4px solid #72aee6; padding:15px; margin-top:15px; border-radius:4px;">
-                                <p style="margin:0; color:#1e3a8a;">You currently have no pending or completed forms assigned to your account.</p>
+                                <p class="cree-bilingual-text" data-en="You currently have no pending or completed forms assigned to your account." data-es="Actualmente no tiene formularios pendientes o completados asignados a su cuenta." style="margin:0; color:#1e3a8a;">You currently have no pending or completed forms assigned to your account.</p>
                             </div>
                         <?php else : ?>
                             <table class="cree-portal-table" style="width:100%; border-collapse:collapse; margin-top:15px; font-size:14px;">
                                 <thead>
                                     <tr style="background:#f9fafb; text-align:left; border-bottom:2px solid #e5e7eb;">
-                                        <th style="padding:12px;">Form Document</th>
-                                        <th style="padding:12px;">Assigned Date</th>
-                                        <th style="padding:12px;">Status</th>
-                                        <th style="padding:12px; text-align:right;">Action</th>
+                                        <th style="padding:12px;"><span class="cree-bilingual-text" data-en="Form Document" data-es="Documento">Form Document</span></th>
+                                        <th style="padding:12px;"><span class="cree-bilingual-text" data-en="Assigned Date" data-es="Fecha Asignada">Assigned Date</span></th>
+                                        <th style="padding:12px;"><span class="cree-bilingual-text" data-en="Status" data-es="Estado">Status</span></th>
+                                        <th style="padding:12px; text-align:right;"><span class="cree-bilingual-text" data-en="Action" data-es="Acción">Action</span></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -117,16 +146,16 @@ class CREE_Consejeria_Client_Portal {
                                             <td style="padding:12px; color:#4b5563;"><?php echo esc_html( wp_date( 'M j, Y', strtotime( $af->created_at ) ) ); ?></td>
                                             <td style="padding:12px;">
                                                 <?php if ( $is_done ) : ?>
-                                                    <span style="background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:bold;">Completed</span>
+                                                    <span class="cree-bilingual-text" data-en="Completed" data-es="Completado" style="background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:bold;">Completed</span>
                                                 <?php else : ?>
-                                                    <span style="background:#fef3c7; color:#92400e; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:bold;">Pending</span>
+                                                    <span class="cree-bilingual-text" data-en="Pending" data-es="Pendiente" style="background:#fef3c7; color:#92400e; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:bold;">Pending</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td style="padding:12px; text-align:right;">
                                                 <?php if ( $is_done ) : ?>
-                                                    <button type="button" class="cree-view-form-btn" data-form-id="<?php echo esc_attr( $completed_record->id ); ?>" style="background:#3b82f6; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">View</button>
+                                                    <button type="button" class="cree-view-form-btn cree-bilingual-text" data-en="View" data-es="Ver" data-form-id="<?php echo esc_attr( $completed_record->id ); ?>" style="background:#3b82f6; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">View</button>
                                                 <?php else : ?>
-                                                    <button type="button" class="cree-open-pending-form-btn" data-form-type="<?php echo esc_attr( $af->form_type ); ?>" style="background:#2563eb; color:#fff; border:none; padding:6px 14px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">✍️ Complete Form</button>
+                                                    <button type="button" class="cree-open-pending-form-btn cree-bilingual-text" data-en="✍️ Complete Form" data-es="✍️ Completar" data-form-type="<?php echo esc_attr( $af->form_type ); ?>" style="background:#2563eb; color:#fff; border:none; padding:6px 14px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer;">✍️ Complete Form</button>
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
@@ -139,7 +168,7 @@ class CREE_Consejeria_Client_Portal {
 
                 <!-- ACTIVE FORM COMPLETION CONTAINER (Hidden by default) -->
                 <div id="cree-client-form-fill-view" style="display:none; background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:24px; margin-top:20px;">
-                    <button type="button" id="cree-back-to-list-btn" style="background:#e5e7eb; color:#374151; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer; margin-bottom:20px;">← Back to Form List</button>
+                    <button type="button" id="cree-back-to-list-btn" class="cree-bilingual-text" data-en="← Back to Form List" data-es="← Volver a la Lista" style="background:#e5e7eb; color:#374151; border:none; padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer; margin-bottom:20px;">← Back to Form List</button>
                     <div id="cree-active-form-render-target"></div>
                 </div>
             </div>
@@ -155,9 +184,9 @@ class CREE_Consejeria_Client_Portal {
                     if ( $time_diff > -3600 && $time_diff < 86400 ) :
                 ?>
                     <div style="background: #eff6ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 25px; margin-bottom: 25px; text-align: center; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.1);">
-                        <h3 style="margin-top: 0; color: #1e3a8a; font-size: 22px;">🎥 Upcoming Video Session</h3>
-                        <p style="font-size: 15px; color: #374151; margin-bottom: 20px;">Scheduled for <strong><?php echo esc_html( wp_date( 'l, F j \a\t g:i A T', $appt_time ) ); ?></strong>.</p>
-                        <a href="<?php echo esc_url( $next_appt->telehealth_link ); ?>" target="_blank" style="background: #2563eb; color: #fff; text-decoration: none; padding: 14px 28px; border-radius: 6px; font-size: 16px; font-weight: bold; display: inline-block; transition: background 0.2s;">Join Video Session Now</a>
+                        <h3 class="cree-bilingual-text" data-en="🎥 Upcoming Video Session" data-es="🎥 Próxima Sesión por Video" style="margin-top: 0; color: #1e3a8a; font-size: 22px;">🎥 Upcoming Video Session</h3>
+                        <p style="font-size: 15px; color: #374151; margin-bottom: 20px;"><span class="cree-bilingual-text" data-en="Scheduled for" data-es="Programada para">Scheduled for</span> <strong><?php echo esc_html( wp_date( 'l, F j \a\t g:i A T', $appt_time ) ); ?></strong>.</p>
+                        <a href="<?php echo esc_url( $next_appt->telehealth_link ); ?>" target="_blank" class="cree-bilingual-text" data-en="Join Video Session Now" data-es="Unirse a la Sesión Ahora" style="background: #2563eb; color: #fff; text-decoration: none; padding: 14px 28px; border-radius: 6px; font-size: 16px; font-weight: bold; display: inline-block; transition: background 0.2s;">Join Video Session Now</a>
                     </div>
                 <?php 
                     endif; 
@@ -165,13 +194,13 @@ class CREE_Consejeria_Client_Portal {
                 ?>
 
                 <div style="background: #fff; padding: 25px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                    <h3 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">📅 Request a New Session</h3>
-                    <p style="font-size: 14px; color: #4b5563; margin-bottom: 20px;">Select a date below to view available appointment times. All times are based on your therapist's current availability.</p>
+                    <h3 class="cree-bilingual-text" data-en="📅 Request a New Session" data-es="📅 Solicitar Nueva Sesión" style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">📅 Request a New Session</h3>
+                    <p class="cree-bilingual-text" data-en="Select a date below to view available appointment times. All times are based on your therapist's current availability." data-es="Seleccione una fecha a continuación para ver los horarios disponibles. Todos los horarios se basan en la disponibilidad actual de su terapeuta." style="font-size: 14px; color: #4b5563; margin-bottom: 20px;">Select a date below to view available appointment times. All times are based on your therapist's current availability.</p>
                     <div style="margin-bottom: 20px;">
                         <input type="date" id="cree-booking-date" min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>" style="padding: 10px; border-radius: 6px; border: 1px solid #d1d5db; width: 100%; max-width: 250px; font-size: 15px;">
                     </div>
                     <div id="cree-available-slots-container" style="display: flex; flex-wrap: wrap; gap: 12px; min-height: 50px;">
-                        <p style="color: #9ca3af; font-style: italic; margin: 0; padding-top: 10px;">Please select a date to view available times.</p>
+                        <p class="cree-bilingual-text" data-en="Please select a date to view available times." data-es="Por favor seleccione una fecha para ver los horarios disponibles." style="color: #9ca3af; font-style: italic; margin: 0; padding-top: 10px;">Please select a date to view available times.</p>
                     </div>
                 </div>
             </div>
@@ -179,9 +208,9 @@ class CREE_Consejeria_Client_Portal {
             <!-- TAB 3: TREATMENT PLAN -->
             <div id="client-tab-plan" class="cree-client-tab-content" style="display:none;">
                 <div style="background: #fff; padding: 25px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                    <h3 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">🎯 My Treatment Plan</h3>
+                    <h3 class="cree-bilingual-text" data-en="🎯 My Treatment Plan" data-es="🎯 Mi Plan de Tratamiento" style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">🎯 My Treatment Plan</h3>
                     <div id="cree-client-visible-plans-container">
-                        <p style="color: #6b7280; font-weight: bold;">Loading your active plans...</p>
+                        <p class="cree-bilingual-text" data-en="Loading your active plans..." data-es="Cargando sus planes activos..." style="color: #6b7280; font-weight: bold;">Loading your active plans...</p>
                     </div>
                 </div>
             </div>
@@ -189,22 +218,22 @@ class CREE_Consejeria_Client_Portal {
             <!-- TAB 4: BILLING & SUPERBILLS -->
             <div id="client-tab-billing" class="cree-client-tab-content" style="display:none;">
                 <div style="background: #fff; padding: 25px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                    <h3 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">💳 Billing & Superbills</h3>
-                    <p style="font-size: 14px; color: #4b5563; margin-bottom: 15px;">Review your account balance and download Superbills for insurance reimbursement.</p>
+                    <h3 class="cree-bilingual-text" data-en="💳 Billing & Superbills" data-es="💳 Facturación y Superbills" style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">💳 Billing & Superbills</h3>
+                    <p class="cree-bilingual-text" data-en="Review your account balance and download Superbills for insurance reimbursement." data-es="Revise el saldo de su cuenta y descargue Superbills para el reembolso del seguro." style="font-size: 14px; color: #4b5563; margin-bottom: 15px;">Review your account balance and download Superbills for insurance reimbursement.</p>
                     
                     <?php if ( empty( $client_bills ) ) : ?>
-                        <div style="background: #f9fafb; padding: 20px; border-radius: 6px; text-align: center; color: #6b7280; font-style: italic;">
+                        <div class="cree-bilingual-text" data-en="You have no billing records at this time." data-es="No tiene registros de facturación en este momento." style="background: #f9fafb; padding: 20px; border-radius: 6px; text-align: center; color: #6b7280; font-style: italic;">
                             You have no billing records at this time.
                         </div>
                     <?php else : ?>
                         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                             <thead>
                                 <tr style="background: #f3f4f6; text-align: left; border-bottom: 2px solid #e5e7eb;">
-                                    <th style="padding: 12px;">Date</th>
-                                    <th style="padding: 12px;">Description</th>
-                                    <th style="padding: 12px;">Amount</th>
-                                    <th style="padding: 12px;">Status</th>
-                                    <th style="padding: 12px; text-align: right;">Action</th>
+                                    <th style="padding: 12px;"><span class="cree-bilingual-text" data-en="Date" data-es="Fecha">Date</span></th>
+                                    <th style="padding: 12px;"><span class="cree-bilingual-text" data-en="Description" data-es="Descripción">Description</span></th>
+                                    <th style="padding: 12px;"><span class="cree-bilingual-text" data-en="Amount" data-es="Cantidad">Amount</span></th>
+                                    <th style="padding: 12px;"><span class="cree-bilingual-text" data-en="Status" data-es="Estado">Status</span></th>
+                                    <th style="padding: 12px; text-align: right;"><span class="cree-bilingual-text" data-en="Action" data-es="Acción">Action</span></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -219,7 +248,7 @@ class CREE_Consejeria_Client_Portal {
                                             </span>
                                         </td>
                                         <td style="padding: 12px; text-align: right;">
-                                            <button type="button" onclick="creeGenerateSuperbill(<?php echo $bill->id; ?>)" style="background: #fff; border: 1px solid #d1d5db; color: #374151; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s;">
+                                            <button type="button" class="cree-bilingual-text" data-en="📄 Download" data-es="📄 Descargar" onclick="creeGenerateSuperbill(<?php echo $bill->id; ?>)" style="background: #fff; border: 1px solid #d1d5db; color: #374151; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; transition: all 0.2s;">
                                                 📄 Download
                                             </button>
                                         </td>
@@ -234,19 +263,19 @@ class CREE_Consejeria_Client_Portal {
             <!-- TAB 5: ACCOUNT SETTINGS -->
             <div id="client-tab-settings" class="cree-client-tab-content" style="display:none;">
                 <div style="background: #fff; padding: 25px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                    <h3 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">🔐 Update Password</h3>
-                    <p style="font-size: 14px; color: #4b5563; margin-bottom: 20px;">Use the form below to change your temporary password to a secure, private one that you can remember.</p>
+                    <h3 class="cree-bilingual-text" data-en="🔐 Update Password" data-es="🔐 Actualizar Contraseña" style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #f3f4f6; padding-bottom: 10px;">🔐 Update Password</h3>
+                    <p class="cree-bilingual-text" data-en="Use the form below to change your temporary password to a secure, private one that you can remember." data-es="Use el siguiente formulario para cambiar su contraseña temporal a una privada y segura que pueda recordar." style="font-size: 14px; color: #4b5563; margin-bottom: 20px;">Use the form below to change your temporary password to a secure, private one that you can remember.</p>
                     
                     <form id="cree-client-password-form" style="max-width: 400px;">
                         <div style="margin-bottom: 15px;">
-                            <label style="display: block; font-size: 13px; font-weight: bold; color: #374151; margin-bottom: 5px;">New Password (Min. 8 characters)</label>
+                            <label class="cree-bilingual-text" data-en="New Password (Min. 8 characters)" data-es="Nueva Contraseña (Mín. 8 caracteres)" style="display: block; font-size: 13px; font-weight: bold; color: #374151; margin-bottom: 5px;">New Password (Min. 8 characters)</label>
                             <input type="password" name="new_password" required minlength="8" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <label style="display: block; font-size: 13px; font-weight: bold; color: #374151; margin-bottom: 5px;">Confirm New Password</label>
+                            <label class="cree-bilingual-text" data-en="Confirm New Password" data-es="Confirmar Nueva Contraseña" style="display: block; font-size: 13px; font-weight: bold; color: #374151; margin-bottom: 5px;">Confirm New Password</label>
                             <input type="password" name="confirm_password" required minlength="8" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
                         </div>
-                        <button type="submit" style="background: #2563eb; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; transition: background 0.2s;">
+                        <button type="submit" class="cree-bilingual-text" data-en="Save New Password" data-es="Guardar Nueva Contraseña" style="background: #2563eb; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; transition: background 0.2s;">
                             Save New Password
                         </button>
                         <div id="cree-password-feedback" style="margin-top: 10px; font-size: 13px; font-weight: bold; display: none;"></div>
@@ -258,8 +287,8 @@ class CREE_Consejeria_Client_Portal {
             <div id="cree-form-view-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
                 <div style="background:#fff; width:90%; max-width:650px; max-height:85vh; border-radius:8px; padding:25px; overflow-y:auto; position:relative;">
                     <button type="button" id="cree-close-modal-btn" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:20px; cursor:pointer; font-weight:bold;">✕</button>
-                    <h3 style="margin-top:0; color:#1e3a8a;">Form Response Details</h3>
-                    <div id="cree-form-modal-content"><p>Loading form content...</p></div>
+                    <h3 class="cree-bilingual-text" data-en="Form Response Details" data-es="Detalles de Respuesta del Formulario" style="margin-top:0; color:#1e3a8a;">Form Response Details</h3>
+                    <div id="cree-form-modal-content"><p class="cree-bilingual-text" data-en="Loading form content..." data-es="Cargando contenido del formulario...">Loading form content...</p></div>
                 </div>
             </div>
 
@@ -405,6 +434,93 @@ class CREE_Consejeria_Client_Portal {
                     $feedback.css('color', '#dc2626').text('❌ Server connection error.').show();
                     $btn.prop('disabled', false).text('Save New Password');
                 });
+            });
+
+            // Client Portal Language Toggle
+            // jQuery(document).on('click', '.cree-lang-btn', function() {
+            //     var selectedLang = jQuery(this).data('lang');
+                
+            //     // Update the toggle button styles visually
+            //     jQuery('.cree-lang-btn').css({'background': 'transparent', 'box-shadow': 'none', 'color': '#fff'}).removeClass('active');
+            //     jQuery(this).css({'background': '#fff', 'box-shadow': '0 1px 2px rgba(0,0,0,0.1)', 'color': '#1e3a8a'}).addClass('active');
+
+            //     // Swap all text instantly
+            //     jQuery('.cree-bilingual-text').each(function() {
+            //         var newText = jQuery(this).data(selectedLang);
+            //         if (newText) {
+            //             jQuery(this).text(newText);
+            //         }
+            //     });
+
+            //     // Swap any input placeholders (if you add them to forms later)
+            //     jQuery('.cree-bilingual-placeholder').each(function() {
+            //         var newPlaceholder = jQuery(this).data(selectedLang);
+            //         if (newPlaceholder) {
+            //             jQuery(this).attr('placeholder', newPlaceholder);
+            //         }
+            //     });
+            // });
+
+            // 1. Initialize language from localStorage
+            var creeCurrentLang = localStorage.getItem('cree_portal_lang') || 'en';
+
+            // 2. Reusable global translation function
+            window.creeApplyLanguage = function(lang) {
+                creeCurrentLang = lang;
+                localStorage.setItem('cree_portal_lang', lang); 
+                
+                // Update the toggle button styles visually
+                jQuery('.cree-lang-btn').css({'background': 'transparent', 'box-shadow': 'none', 'color': '#4b5563'}).removeClass('active');
+                jQuery('.cree-lang-btn[data-lang="' + lang + '"]').css({'background': '#fff', 'box-shadow': '0 1px 2px rgba(0,0,0,0.1)', 'color': '#1e3a8a'}).addClass('active');
+
+                // Swap text for labels, headings, buttons, etc.
+                jQuery('.cree-bilingual-text').each(function() {
+                    var newText = jQuery(this).data(lang);
+                    if (newText) {
+                        jQuery(this).text(newText);
+                    }
+                });
+
+                // Swap placeholders for inputs/textareas
+                jQuery('.cree-bilingual-placeholder').each(function() {
+                    var newPlaceholder = jQuery(this).data(lang);
+                    if (newPlaceholder) {
+                        jQuery(this).attr('placeholder', newPlaceholder);
+                    }
+                });
+
+                // Reveal the text smoothly after translation is applied
+                setTimeout(function() {
+                    jQuery('#cree-client-portal-wrapper').removeClass('cree-is-translating');
+                }, 30); // 30ms gives the browser just enough time to process the new words
+            };
+
+            // 3. RUN INSTANTLY on load (Do not wait for document.ready)
+            // This stops the initial page load blink completely
+            creeApplyLanguage(creeCurrentLang);
+
+            // 4. Handle Toggle Clicks (with smooth fade)
+            jQuery(document).ready(function($) {
+                $(document).on('click', '.cree-lang-btn', function() {
+                    var selectedLang = $(this).data('lang');
+                    
+                    // Hide text, swap it, then reveal it
+                    $('#cree-client-portal-wrapper').addClass('cree-is-translating');
+                    setTimeout(function() {
+                        creeApplyLanguage(selectedLang);
+                    }, 150); 
+                });
+            });
+
+            // 5. Handle AJAX Form Loads
+            jQuery(document).ajaxSend(function() {
+                // Hide text instantly when a new form starts loading
+                jQuery('#cree-client-portal-wrapper').addClass('cree-is-translating');
+            });
+
+            jQuery(document).ajaxComplete(function() {
+                // Translate and reveal when the form finishes loading
+                creeApplyLanguage(creeCurrentLang);
             });
 
         </script>

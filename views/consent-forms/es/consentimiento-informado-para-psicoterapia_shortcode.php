@@ -26,15 +26,15 @@ $user_email   = ( $current_user->exists() ) ? $current_user->user_email : '';
         <div class="therapist-badge-info" style="background: #f7f9fa; border-left: 4px solid #0056b3; padding: 15px; margin-bottom: 25px; font-size: 0.9em; color: #555;">
             <strong>Terapeuta:</strong> Rafael Ramírez (Licencia LPC-A #906126)<br>
             <strong>Centro:</strong> CREE Consejeria <br>
-            <strong>Contacto:</strong> (325) 219-4039
+            <strong>Contacto:</strong> (325) 276-2476
         </div>
 
         <h2>Información General</h2>
         <p>
-            CREE Consejeria (HU) es un centro profesional de consejería cristiana. Cada uno de nuestros terapeutas cuenta con una formación académica y una experiencia profesional diversas. Asimismo, cada terapeuta posee antecedentes y experiencias cristianas variadas. De igual manera, cada terapeuta tiene un enfoque profesional distinto respecto a cómo integra los principios clínicos con los basados en la fe. Lo que todos los terapeutas de HU tienen en común es el deseo de ser instrumentos de un Dios amoroso.
+            CREE Consejeria (CREE) es un centro profesional de consejería cristiana. Cada uno de nuestros terapeutas cuenta con una formación académica y una experiencia profesional diversas. Asimismo, cada terapeuta posee antecedentes y experiencias cristianas variadas. De igual manera, cada terapeuta tiene un enfoque profesional distinto respecto a cómo integra los principios clínicos con los basados en la fe. Lo que todos los terapeutas de CREE tienen en común es el deseo de ser instrumentos de un Dios amoroso.
         </p>
         <p>
-            En HU creemos firmemente en la importancia de la salud psicológica, emocional, relacional, espiritual y física. HU también valora enormemente la autonomía de cada cliente. Por ello, le animamos a que, si tiene alguna inquietud o pregunta, consulte a su terapeuta sobre su enfoque profesional y personal respecto a la consejería cristiana.
+            En CREE creemos firmemente en la importancia de la salud psicológica, emocional, relacional, espiritual y física. CREE también valora enormemente la autonomía de cada cliente. Por ello, le animamos a que, si tiene alguna inquietud o pregunta, consulte a su terapeuta sobre su enfoque profesional y personal respecto a la consejería cristiana.
         </p>
         <p>
             La relación terapéutica es única, ya que es altamente personal y, al mismo tiempo, un acuerdo contractual. Por tanto, es importante que lleguemos a un entendimiento claro sobre cómo funcionará nuestra relación y qué podemos esperar mutuamente. Este consentimiento proporcionará un marco claro para nuestro trabajo conjunto. Siéntase libre de hablar conmigo sobre cualquier aspecto de esto. Por favor, lea esta información, confírmela y acepte los términos marcando la casilla correspondiente al final de este documento.
@@ -70,7 +70,7 @@ $user_email   = ( $current_user->exists() ) ? $current_user->user_email : '';
 
         <h2>Sobre el Terapeuta</h2>
         <p>
-            Rafael Ramírez es terapeuta matrimonial y familiar y consejero autorizado en dependencia química. Trabaja en diversas áreas, incluyendo la superación de adicciones y la atención a niños, individuos, parejas y familias, con el fin de fomentar cambios basados en principios divinos en la vida de las personas a las que asesora. El Sr. Hall obtuvo su maestría en Terapia Matrimonial y Familiar en la Abilene Christian University. Cuenta con casi cinco años de práctica privada en CREE Consejeria.
+            Rafael Ramírez es un consejero profesional asociado con licencia en el estado de Texas supervisado por Lisa Powel, LPC-S. Trabaja en diversas áreas, incluyendo la superación de adicciones y la atención a niños, individuos, parejas y familias, con el fin de fomentar cambios basados en principios divinos en la vida de las personas a las que asesora. El Sr. Ramírez obtuvo su maestría en Consejeria Profesional en Amridge University. Cuenta con casi cinco años de práctica con diversos clientes en línea.
         </p>
 
         <h2>Información de Identificación del Cliente</h2>

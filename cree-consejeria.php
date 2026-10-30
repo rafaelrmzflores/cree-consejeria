@@ -339,17 +339,27 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             }
 
             $pages_to_create = array(
-                //Intake Forms
+                //Intake Forms EN/ES
                 array( 'slug' => 'registration-short-form', 'title' => __('Formulario de Registro Breve', 'cree-consejeria'), 'form_type' => 'registration_short_form' ),
                 array( 'slug' => 'psychosocial-evaluation-form', 'title' => __('Formulario de Evaluación Psicosocial', 'cree-consejeria'), 'form_type' => 'psychosocial_evaluation' ),
                 array( 'slug' => 'substance-abuse-form', 'title' => __('Formulario de Abuso de Sustancias', 'cree-consejeria'), 'form_type' => 'substance_abuse_intake' ),
-               // Legal & Privacy Forms
+               
+                // Avisos Legales y de Privacidad
                 array( 'slug' => 'aviso-de-practicas-de-privacidad', 'title' => __('Aviso de Prácticas de Privacidad', 'cree-consejeria'), 'form_type' => 'aviso_de_practicas_de_privacidad' ), 
                 array( 'slug' => 'politicas-de-la-practica', 'title' => __('Aviso de Políticas de la Práctica', 'cree-consejeria'), 'form_type' => 'politicas_de_la_practica' ),
+                // Legal & Privacy Forms
+                array( 'slug' => 'notice-of-privacy-practices', 'title' => __('Notice of Privacy Practices', 'cree-consejeria'), 'form_type' => 'notice_of_privacy_practices' ), 
+                array( 'slug' => 'practice-policies', 'title' => __('Practice Policies', 'cree-consejeria'), 'form_type' => 'practice_policies' ),
+
                 // Consentimientos Informados
                 array( 'slug' => 'consentimiento-informado-para-psicoterapia', 'title' => __('Consentimiento Informado para Psicoterapia', 'cree-consejeria'), 'form_type' => 'consentimiento_informado_para_psicoterapia' ),
                 array( 'slug' => 'consentimiento-informado-para-terapia-en-linea', 'title' => __('Consentimiento Informado para Terapia en Línea', 'cree-consejeria'), 'form_type' => 'consentimiento_informado_para_terapia_en_linea' ),
                 array( 'slug' => 'consentimiento-para-divulgacion-de-informacion', 'title' => __('Consentimiento para la Divulgación de Información', 'cree-consejeria'), 'form_type' => 'consentimiento_para_divulgacion_de_informacion' ),
+                // Informed Consents
+                array( 'slug' => 'informed-consent-for-psychotherapy', 'title' => __('Informed Consent for Psychotherapy', 'cree-consejeria'), 'form_type' => 'informed_consnet_for_psychotherapy' ),
+                array( 'slug' => 'informed-consent-for-online-therapy', 'title' => __('Informed Consent For Online Therapy', 'cree-consejeria'), 'form_type' => 'informed_consnet_for_online_therapy' ),
+                array( 'slug' => 'informed-consent-for-release-of-information', 'title' => __('Informed Consent for Release of Information', 'cree-consejeria'), 'form_type' => 'informed_consnet_for_release_of_informastion' ),
+                
                 // Client Portal and Login Pages
                 array( 'slug' => 'client-portal', 'title' => __('Portal del Cliente', 'cree-consejeria'), 'form_type' => '' ),
                 array( 'slug' => 'client-login', 'title' => __('Ingreso del Cliente', 'cree-consejeria'), 'form_type' => '' )
@@ -477,14 +487,26 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                 $form_type = ! empty( $payload['form_type'] ) ? $payload['form_type'] : '';
 
                 $form_names = array(
-                    'substance_abuse_intake'                     => __( 'Substance Abuse Intake', 'cree-consejeria' ),
-                    'aviso_de_practicas_de_privacidad'           => __( 'Aviso de Prácticas de Privacidad', 'cree-consejeria' ),
-                    'consentimiento_informado_para_psicoterapia' => __( 'Consentimiento Informado para Psicoterapia', 'cree-consejeria' ),
-                    'politicas_de_la_practica'                   => __( 'Políticas de la Práctica', 'cree-consejeria' ),
-                    'consentimiento_informado_para_terapia_en_linea' => __( 'Consentimiento Informado para Terapia en Línea', 'cree-consejeria' ),
-                    'consentimiento_para_divulgacion_de_informacion' => __( 'Consentimiento para Divulgación de Información', 'cree-consejeria' ),
-                    'registration_short_form'                   => __( 'Registration Short Form', 'cree-consejeria' ),
-                    'psychosocial_evaluation'                   => __( 'Psychosocial Evaluation', 'cree-consejeria' )
+                    //Intake Forms EN/ES
+                    'registration_short_form'                           => __( 'Registration Short Form', 'cree-consejeria' ),
+                    'psychosocial_evaluation'                           => __( 'Psychosocial Evaluation', 'cree-consejeria' ),
+                    'substance_abuse_intake'                            => __( 'Substance Abuse Intake', 'cree-consejeria' ),
+
+                    // Consentimientos Informados
+                    'consentimiento_informado_para_psicoterapia'        => __( 'Consentimiento Informado para Psicoterapia', 'cree-consejeria' ),
+                    'consentimiento_informado_para_terapia_en_linea'    => __( 'Consentimiento Informado para Terapia en Línea', 'cree-consejeria' ),
+                    'consentimiento_para_divulgacion_de_informacion'    => __( 'Consentimiento para Divulgación de Información', 'cree-consejeria' ),
+                    // Informed Consents
+                    'informed_consent_for_psychotherapy'                => __( 'Informed Consent for Psychotherapy', 'cree-consejeria' ),
+                    'informed_consent_for_online_therapy'               => __( 'Informed Consent for Online Therapy', 'cree-consejeria' ),
+                    'informed_consent_for_release_of_information'       => __( 'Informed Consent for Release of Information', 'cree-consejeria' ),
+
+                    // Avisos Legales y de Privacidad
+                    'politicas_de_la_practica'                          => __( 'Políticas de la Práctica', 'cree-consejeria' ),
+                    'aviso_de_practicas_de_privacidad'                  => __( 'Aviso de Prácticas de Privacidad', 'cree-consejeria' ),
+                    // Legal & Privacy Forms
+                    'practice_policies'                                 => __( 'Practice Policies', 'cree-consejeria' ),
+                    'notice_of_privacy_practices'                       => __( 'Notice of Privacy Practices', 'cree-consejeria' )
                 );
 
                 $friendly_name = isset( $form_names[ $form_type ] ) ? $form_names[ $form_type ] : __( 'intake', 'cree-consejeria' );
@@ -2196,14 +2218,35 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                                 <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:4px;">Select Form to Assign:</label>
                                 <select name="form_type" style="width:100%; padding:8px; border-radius:4px; border:1px solid #d1d5db;" required>
                                     <option value="">-- Choose Form --</option>
-                                    <option value="registration_short_form">Client Registration Form</option>
-                                    <option value="psychosocial_evaluation">Psychosocial Evaluation</option>
-                                    <option value="substance_abuse_intake">Substance Abuse Intake</option>
-                                    <option value="aviso_de_practicas_de_privacidad">Aviso de Prácticas de Privacidad</option>
-                                    <option value="consentimiento_informado_para_psicoterapia">Consentimiento Informado para Psicoterapia</option>
-                                    <option value="consentimiento_informado_para_terapia_en_linea">Consentimiento Informado para Terapia en Línea</option>
-                                    <option value="consentimiento_para_divulgacion_de_informacion">Consentimiento para Divulgación de Información</option>
-                                    <option value="politicas_de_la_practica">Políticas de la Práctica</option>
+                                    
+                                    <?php
+                                    // Define your available forms here to make the dropdown dynamic
+                                    $available_forms = array(
+                                        // Bilingual / Dynamic Forms
+                                        'registration_short_form' => 'Client Registration Form',
+                                        'psychosocial_evaluation' => 'Psychosocial Evaluation',
+                                        'substance_abuse_intake'  => 'Substance Abuse Intake',
+                                        
+                                        // Spanish Legal Forms
+                                        'aviso_de_practicas_de_privacidad'               => 'Aviso de Prácticas de Privacidad (ES)',
+                                        'consentimiento_informado_para_psicoterapia'     => 'Consentimiento Informado para Psicoterapia (ES)',
+                                        'consentimiento_informado_para_terapia_en_linea' => 'Consentimiento Informado para Terapia en Línea (ES)',
+                                        'consentimiento_para_divulgacion_de_informacion' => 'Consentimiento para Divulgación de Información (ES)',
+                                        'politicas_de_la_practica'                       => 'Políticas de la Práctica (ES)',
+
+                                        // English Legal Forms
+                                        'notice_of_privacy_practices'                 => 'Notice of Privacy Practices (EN)',
+                                        'informed_consent_for_psychotherapy'          => 'Informed Consent for Psychotherapy (EN)',
+                                        'informed_consent_for_online_therapy'         => 'Informed Consent for Online Therapy (EN)',
+                                        'informed_consent_for_release_of_information' => 'Informed Consent for Release of Information (EN)',
+                                        'practice_policies'                           => 'Practice Policies (EN)'
+                                    );
+
+                                    // Dynamically build the dropdown options
+                                    foreach ( $available_forms as $slug => $label ) {
+                                        echo '<option value="' . esc_attr( $slug ) . '">' . esc_html( $label ) . '</option>';
+                                    }
+                                    ?>
                                 </select>
                             </div>
                             <button type="submit" style="background:#2563eb; color:#fff; border:none; padding:10px 14px; border-radius:4px; font-weight:bold; cursor:pointer; width:100%;">Assign to Client</button>
@@ -2606,39 +2649,63 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             switch ( $form_type ) {
                 
-                // Intake Forms
+                // ==========================================
+                // INTAKE FORMS (BILINGUAL)
+                // ==========================================
                 case 'registration_short_form':
                     require_once CREE_CONSEJERIA_CFM_PATH . 'views/intake-forms/client-registration-short-form_shortcode.php';
                     break;
-
                 case 'psychosocial_evaluation':
                     require_once CREE_CONSEJERIA_CFM_PATH . 'views/intake-forms/psychosocial-evaluation_shortcode.php';
                     break;
-
                 case 'substance_abuse_intake':
                     require_once CREE_CONSEJERIA_CFM_PATH . 'views/intake-forms/substance-abuse-intake_shortcode.php';
                     break;
 
-                // Privacy Forms
+                // ==========================================
+                // PRIVACY FORMS (SPANISH)
+                // ==========================================
                 case 'politicas_de_la_practica':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/privacy-forms/politicas-de-la-practica_shortcode.php';
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/privacy-forms/es/politicas-de-la-practica_shortcode.php';
                     break;
-
                 case 'aviso_de_practicas_de_privacidad':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/privacy-forms/aviso-de-practicas-de-privacidad_shortcode.php';
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/privacy-forms/es/aviso-de-practicas-de-privacidad_shortcode.php';
                     break;
 
-                // Consent Forms
+                // ==========================================
+                // PRIVACY FORMS (ENGLISH)
+                // ==========================================
+                case 'practice_policies':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/privacy-forms/en/practice-policies_shortcode.php';
+                    break;
+                case 'notice_of_privacy_practices':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/privacy-forms/en/notice-of-privacy-practices_shortcode.php';
+                    break;
+
+                // ==========================================
+                // CONSENT FORMS (SPANISH)
+                // ==========================================
                 case 'consentimiento_informado_para_psicoterapia':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/consentimiento-informado-para-psicoterapia_shortcode.php';
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/es/consentimiento-informado-para-psicoterapia_shortcode.php';
                     break;
-
                 case 'consentimiento_informado_para_terapia_en_linea':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/consentimiento-informado-para-terapia-en-linea_shortcode.php';
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/es/consentimiento-informado-para-terapia-en-linea_shortcode.php';
+                    break;
+                case 'consentimiento_para_divulgacion_de_informacion':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/es/consentimiento-para-divulgacion-de-informacion_shortcode.php';
                     break;
 
-                case 'consentimiento_para_divulgacion_de_informacion':
-                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/consentimiento-para-divulgacion-de-informacion_shortcode.php';
+                // ==========================================
+                // CONSENT FORMS (ENGLISH)
+                // ==========================================
+                case 'informed_consent_for_psychotherapy':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/en/informed-consent-for-psychotherapy_shortcode.php';
+                    break;
+                case 'informed_consent_for_online_therapy':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/en/informed-consent-for-online-therapy_shortcode.php';
+                    break;
+                case 'informed_consent_for_release_of_information':
+                    require_once CREE_CONSEJERIA_CFM_PATH . 'views/consent-forms/en/informed-consent-for-release-of-information_shortcode.php';
                     break;
 
                 default:
@@ -3921,8 +3988,8 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                 <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
                     <div>
                         <h1 style="margin: 0; color: #1e3a8a; font-size: 24px;">CREE Consejería</h1>
-                        <p style="margin: 5px 0 0 0; font-size: 14px;">1219 E Broadway St., Sweetwater, TX 79556</p>
-                        <p style="margin: 0; font-size: 14px;">Phone: 325-219-4039</p>
+                        <p style="margin: 5px 0 0 0; font-size: 14px;">Maxwell, TX 78656</p>
+                        <p style="margin: 0; font-size: 14px;">Phone: +1 325-219-4039</p>
                         <p style="margin: 0; font-size: 14px;">Provider: <?php echo esc_html($therapist->display_name); ?> (LPC-A #90612)</p>
                     </div>
                     <div style="text-align: right;">
