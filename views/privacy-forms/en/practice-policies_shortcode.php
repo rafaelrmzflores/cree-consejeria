@@ -26,7 +26,7 @@ $user_email   = ( $current_user->exists() ) ? $current_user->user_email : '';
         <div class="therapist-badge-info" style="background: #f7f9fa; border-left: 4px solid #0056b3; padding: 15px; margin-bottom: 25px; font-size: 0.9em; color: #555;">
             <strong>Agency:</strong> CREE Consejeria<br>
             <strong>Address:</strong> Maxwell, TX 78656<br>
-            <strong>Contact:</strong> +1 325-219-4039 | Rafael Ramírez (License LPC-A #90612)
+            <strong>Contact:</strong> +1 325-276-2476 | Rafael Ramírez (License LPC-A #90612)
         </div>
 
         <h2>Appointments and Cancellations</h2>

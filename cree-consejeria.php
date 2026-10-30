@@ -803,9 +803,9 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             $message .= "Usuario: " . $email . "\n\n";
             
             $message .= "PASO 3: Complete sus documentos iniciales\n";
-            $message .= "Al ingresar al portal, verá una pestaña llamada '📋 My Forms'. Por favor, revise y complete todos los documentos pendientes antes de nuestra cita. Esto nos permitirá aprovechar al máximo nuestro tiempo juntos.\n\n";
+            $message .= "Al ingresar al portal, verá una pestaña llamada '📋 Mis Formularios'. Por favor, revise y complete todos los documentos pendientes antes de nuestra cita. Esto nos permitirá aprovechar al máximo nuestro tiempo juntos.\n\n";
             
-            $message .= "Si tiene alguna pregunta o dificultad técnica para ingresar, por favor responda a este correo o comuníquese al 325-219-4039.\n\n";
+            $message .= "Si tiene alguna pregunta o dificultad técnica para ingresar, por favor responda a este correo o comuníquese al +1 325-276-2476.\n\n";
             $message .= "Atentamente,\nRafael Ramírez (LPC-A)\nCREE Consejería";
 
             // Use the site domain for a proper sender address to prevent spam filtering
@@ -839,7 +839,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             $message .= "PASO 2: Complete sus documentos iniciales\n";
             $message .= "Al ingresar al portal, verá una pestaña llamada '📋 My Forms'. Por favor, revise y complete todos los documentos pendientes antes de nuestra cita. Esto nos permitirá aprovechar al máximo nuestro tiempo juntos.\n\n";
             
-            $message .= "Si tiene alguna pregunta o dificultad técnica para ingresar, por favor comuníquese al 325-219-4039.\n\n";
+            $message .= "Si tiene alguna pregunta o dificultad técnica para ingresar, por favor comuníquese al +1 325-276-2476.\n\n";
             $message .= "Atentamente,\nRafael Ramírez (LPC-A)\nCREE Consejeria";
 
             // Dynamically fetch your verified admin email address
@@ -873,7 +873,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             $message .= "PASO 2: Complete sus documentos iniciales\n";
             $message .= "Al ingresar al portal, verá una pestaña llamada '📋 My Forms'. Por favor, revise y complete todos los documentos pendientes antes de nuestra cita. Esto nos permitirá aprovechar al máximo nuestro tiempo juntos.\n\n";
             
-            $message .= "Si tiene alguna pregunta o dificultad técnica para ingresar, por favor comuníquese al 325-219-4039.\n\n";
+            $message .= "Si tiene alguna pregunta o dificultad técnica para ingresar, por favor comuníquese al +1 325-276-2476.\n\n";
             $message .= "Atentamente,\nRafael Ramírez (LPC-A)\nCREE Consejeria";
 
             $headers = array( 'Content-Type: text/plain; charset=UTF-8' );
@@ -3989,7 +3989,7 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
                     <div>
                         <h1 style="margin: 0; color: #1e3a8a; font-size: 24px;">CREE Consejería</h1>
                         <p style="margin: 5px 0 0 0; font-size: 14px;">Maxwell, TX 78656</p>
-                        <p style="margin: 0; font-size: 14px;">Phone: +1 325-219-4039</p>
+                        <p style="margin: 0; font-size: 14px;">Phone: +1 325-276-2476</p>
                         <p style="margin: 0; font-size: 14px;">Provider: <?php echo esc_html($therapist->display_name); ?> (LPC-A #90612)</p>
                     </div>
                     <div style="text-align: right;">

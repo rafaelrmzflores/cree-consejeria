@@ -38,7 +38,7 @@ $user_email   = ( $current_user->exists() ) ? $current_user->user_email : '';
             <li>He mantenido una conversación directa con mi proveedor, durante la cual tuve la oportunidad de hacer preguntas sobre este procedimiento. Mis preguntas han sido respondidas y se han discutido conmigo los riesgos, beneficios y cualquier alternativa práctica en un idioma que comprendo.</li>
         </ol>
 
-        <h2>Consentimiento para el Uso del Servicio Telehealth by SimplePractice</h2>
+        <!-- <h2>Consentimiento para el Uso del Servicio Telehealth by SimplePractice</h2>
         <p>
             Telehealth by SimplePractice es el servicio tecnológico que utilizaremos para llevar a cabo citas de videoconferencia de telemedicina. Es fácil de usar y no requiere contraseñas para iniciar sesión. Al firmar este documento, reconozco lo siguiente:
         </p>
@@ -48,7 +48,55 @@ $user_email   = ( $current_user->exists() ) ? $current_user->user_email : '';
             <li>El servicio Telehealth by SimplePractice facilita la videoconferencia y no es responsable de la prestación de atención sanitaria, asesoramiento médico o cuidados de salud.</li>
             <li>No asumo que mi proveedor tenga acceso a parte o a toda la información técnica del servicio Telehealth by SimplePractice, ni que dicha información esté vigente, sea precisa o esté actualizada. No confiaré en que mi proveedor de atención médica disponga de esta información en el servicio Telehealth by SimplePractice.</li>
             <li>Para mantener la confidencialidad, no compartiré el enlace de mi cita de telesalud con ninguna persona no autorizada para asistir a la misma.</li>
+        </ol> -->
+
+        <h2>Consentimiento para el Uso de WhatsApp para Sesiones en Línea</h2>
+        <p>
+            WhatsApp es la plataforma que utilizaremos para llevar a cabo nuestras citas de videoconferencia de teleterapia. Elegimos este servicio por su accesibilidad y porque cuenta con cifrado de extremo a extremo para proteger su privacidad. Al firmar este documento, reconozco lo siguiente:
+        </p>
+        <ol style="margin-bottom: 25px; padding-left: 20px; line-height: 1.6;">
+            <li>WhatsApp <strong>NO es un servicio de emergencia</strong> y, en caso de emergencia, utilizaré mi línea telefónica regular para llamar al 911 o acudiré a la sala de urgencias más cercana.</li>
+            <li>Entiendo que las videollamadas de WhatsApp están protegidas con <strong>cifrado de extremo a extremo</strong>. Esto significa que la conexión es privada y segura; solo mi proveedor y yo podemos ver o escuchar lo que ocurre durante la sesión, y terceros (incluido Meta/WhatsApp) no pueden interceptar el contenido.</li>
+            <li>Reconozco que el uso de cualquier tecnología de terceros conlleva riesgos inherentes. Aunque la comunicación está encriptada por la aplicación, WhatsApp no es un proveedor de atención médica ni es responsable de la prestación de servicios de salud.</li>
+            <li>Dado que utilizaré mi cuenta personal, es mi responsabilidad proteger mi propio teléfono o dispositivo móvil mediante el uso de contraseñas, huella dactilar o reconocimiento facial para evitar que personas no autorizadas accedan a mi cuenta.</li>
+            <li>Para mantener la confidencialidad clínica, me comprometo a realizar mis videollamadas desde un entorno privado y cerrado donde otras personas no puedan escuchar la conversación, y no grabaré ni permitiré que terceros asistan a la sesión sin autorización previa.</li>
         </ol>
+
+        <!-- <h2>Consentimiento para el Uso de Google Meet para Sesiones en Línea</h2>
+        <p>
+            Google Meet es la plataforma que utilizaremos para llevar a cabo nuestras citas de videoconferencia. Elegimos este servicio por su facilidad de acceso y sus altos estándares de seguridad. Al firmar este documento, reconozco lo siguiente:
+        </p>
+        <ol style="margin-bottom: 25px; padding-left: 20px; line-height: 1.6;">
+            <li>Google Meet <strong>NO es un servicio de emergencia</strong> y, en caso de emergencia, utilizaré mi línea telefónica regular para llamar al 911 o acudiré a la sala de urgencias más cercana.</li>
+            <li>Entiendo que las sesiones a través de Google Meet están protegidas con <strong>cifrado de datos en tránsito</strong>. Esto protege la privacidad de la sesión para que personas ajenas no puedan interceptar la comunicación en la red.</li>
+            <li>Reconozco que Google proporciona únicamente la infraestructura tecnológica. No es un proveedor de atención médica ni asume responsabilidad por la prestación de servicios de salud.</li>
+            <li>Es mi responsabilidad proteger el acceso a mi cuenta de correo, así como mi computadora o dispositivo móvil, para evitar que personas no autorizadas accedan a mi información o al enlace de la sesión.</li>
+            <li>Para mantener la confidencialidad clínica, me comprometo a realizar mis videollamadas desde un entorno privado, no compartiré el enlace de la reunión con terceros y no grabaré la sesión sin autorización previa.</li>
+        </ol> -->
+
+        <!-- <h2>Consentimiento para el Uso de Doxy.me para Sesiones en Línea</h2>
+        <p>
+            Doxy.me es una plataforma diseñada específicamente para la telemedicina. Elegimos este servicio porque cumple con estrictas leyes de privacidad en salud (como HIPAA en EE. UU.) y no requiere que usted descargue aplicaciones ni cree cuentas. Al firmar este documento, reconozco lo siguiente:
+        </p>
+        <ol style="margin-bottom: 25px; padding-left: 20px; line-height: 1.6;">
+            <li>Doxy.me <strong>NO es un servicio de emergencia</strong> y, en caso de emergencia, utilizaré mi línea telefónica regular para llamar al 911 o acudiré a la sala de urgencias más cercana.</li>
+            <li>Entiendo que Doxy.me utiliza <strong>cifrado de grado médico</strong> y comunicaciones punto a punto. La plataforma es completamente privada y no graba ni almacena información médica personal de nuestras sesiones de video.</li>
+            <li>Reconozco que Doxy.me es únicamente una herramienta tecnológica para facilitar la videoconferencia y no es responsable de la prestación de atención sanitaria o asesoramiento médico.</li>
+            <li>Aunque la plataforma es segura, es mi responsabilidad asegurar que mi conexión a internet (Wi-Fi) sea segura y proteger mi dispositivo para evitar accesos no autorizados durante la consulta.</li>
+            <li>Para mantener la confidencialidad, no compartiré el enlace de mi "sala de espera virtual" con ninguna persona y me aseguraré de estar en un espacio cerrado y privado durante la duración de la cita.</li>
+        </ol> -->
+
+        <!-- <h2>Consentimiento para el Uso de Zoom para Sesiones en Línea</h2>
+        <p>
+            Zoom es el servicio tecnológico que utilizaremos para llevar a cabo nuestras citas de teleterapia. Elegimos esta plataforma por su estabilidad de conexión y sus funciones de seguridad integradas. Al firmar este documento, reconozco lo siguiente:
+        </p>
+        <ol style="margin-bottom: 25px; padding-left: 20px; line-height: 1.6;">
+            <li>Zoom <strong>NO es un servicio de emergencia</strong> y, en caso de emergencia, utilizaré mi línea telefónica regular para llamar al 911 o acudiré a la sala de urgencias más cercana.</li>
+            <li>Entiendo que nuestras sesiones de Zoom están protegidas mediante <strong>cifrado avanzado</strong>, y que utilizaremos medidas de seguridad adicionales como "salas de espera" y contraseñas para garantizar que solo las personas autorizadas ingresen a la reunión.</li>
+            <li>Reconozco que Zoom Video Communications, Inc. facilita la plataforma tecnológica, pero no proporciona asesoramiento, servicios médicos ni de salud mental.</li>
+            <li>Es mi responsabilidad no compartir el enlace de la reunión, el ID de la sesión ni el código de acceso con ninguna persona no autorizada, así como mantener seguro mi propio dispositivo y red de internet.</li>
+            <li>Para proteger mi privacidad clínica, me comprometo a conectarme desde un entorno privado donde no pueda ser escuchado, y acepto que está estrictamente prohibido grabar la sesión por cualquiera de las partes sin el consentimiento explícito de ambos.</li>
+        </ol> -->
 
         <h2>Certificación del Cliente</h2>
         <p>Al firmar este formulario, certifico:</p>
