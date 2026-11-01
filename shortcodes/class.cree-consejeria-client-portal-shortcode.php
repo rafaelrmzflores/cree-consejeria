@@ -91,12 +91,14 @@ class CREE_Consejeria_Client_Portal {
                 <!-- LOGO AND WELCOME TEXT -->
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <!-- Logo Image -->
-                    <!-- <img src="<?php echo esc_url( plugins_url( 'assets/images/cree-logo-azul.png', dirname(__FILE__) ) ); ?>" alt="CREE Consejería Logo" style="max-height: 60px; width: auto; background: #fff; padding: 5px; border-radius: 6px;"> -->
                     <img src="<?php echo esc_url( plugins_url( 'assets/images/cree-logo-celeste.png', dirname(__FILE__) ) ); ?>" alt="CREE Consejería Logo" style="max-height: 125px; width: auto;">
 
                     <div>
-                        <h2 style="margin:0; font-size:22px; color:#fff;"><span class="cree-bilingual-text" data-en="Welcome," data-es="Bienvenido(a),">Welcome,</span> <?php echo esc_html( $current_user->display_name ); ?></h2>
-                        <p class="cree-bilingual-text" data-en="Manage your forms, appointments, and billing securely." data-es="Administre sus formularios, citas y facturación de forma segura." style="margin:5px 0 0 0; font-size:14px; opacity:0.9;">Manage your forms, appointments, and billing securely.</p>
+                        <h2 style="margin:0; font-size:22px; color:#ffffff !important;">
+                            <span class="cree-bilingual-text" style="color:#ffffff !important;" data-en="Welcome," data-es="Bienvenido(a),">Welcome,</span> 
+                            <?php echo esc_html( $current_user->display_name ); ?>
+                        </h2>
+                        <p class="cree-bilingual-text" data-en="Manage your forms, appointments, and billing securely." data-es="Administre sus formularios, citas y facturación de forma segura." style="margin:5px 0 0 0; font-size:14px; opacity:0.9; color:#ffffff !important;">Manage your forms, appointments, and billing securely.</p>
                     </div>
                 </div>
                 
@@ -104,6 +106,12 @@ class CREE_Consejeria_Client_Portal {
                 <div style="background: rgba(255,255,255,0.2); padding: 4px; border-radius: 20px; display: flex; gap: 4px;">
                     <button type="button" class="cree-lang-btn active" data-lang="en" style="border: none; background: #fff; padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: bold; cursor: pointer; color: #1e3a8a; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">EN</button>
                     <button type="button" class="cree-lang-btn" data-lang="es" style="border: none; background: transparent; padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: bold; cursor: pointer; color: #fff;">ES</button>
+                </div>
+
+                <div>
+                        <a href="<?php echo esc_url( wp_logout_url( home_url() ) ); ?>" style="background: rgba(255,255,255,0.2); color: #fff; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 14px; font-weight: bold; transition: background 0.2s;">
+                            <span class="cree-bilingual-text" data-en="Log Out" data-es="Cerrar Sesión">Cerrar Sesión</span>
+                        </a>
                 </div>
             </div>
 

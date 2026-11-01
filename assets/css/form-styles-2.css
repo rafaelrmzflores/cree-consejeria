@@ -35,7 +35,7 @@
 }
 
 /* ==========================================================================
-   1. Base Container & Layout
+1. Base Container & Layout
    ========================================================================== */
 #page .cree-form-container,
 body .cree-form-container {
@@ -51,9 +51,20 @@ body .cree-form-container {
   position: relative;
 }
 
+/* THEME OVERRIDE: Force high-contrast text against white container */
+.cree-form-container,
+.cree-form-container h1,
+.cree-form-container h2,
+.cree-form-container h3,
+.cree-form-container p,
+.cree-form-container li,
+.cree-form-container span {
+    color: var(--cree-text) !important;
+}
+
 .cree-form-container h1 {
   font-size: 26px;
-  color: var(--cree-primary);
+  color: var(--cree-primary) !important; /* Ensure primary blue stays */
   margin-bottom: 25px;
   text-align: center;
   border-bottom: 3px solid var(--cree-bg-light);
@@ -273,7 +284,7 @@ body .cree-form-container {
 .cree-form-container button[type="submit"].submit-btn,
 .thai-btn-sapphire {
   background-color: var(--thai-sapphire);
-  color: var(--thai-sapphire-dark);
+  color: var(--thai-sapphire-dark) !important;
   box-shadow: 0 6px 0 var(--thai-sapphire-shadow); /* Solid 3D shadow depth */
 }
 .cree-form-container .submit-btn.cree-next-step:active,
@@ -285,7 +296,7 @@ body .cree-form-container {
 /* Secondary Action (Back): Neutral Gray Variant */
 .cree-form-container .submit-btn.cree-prev-step {
   background-color: #e5e7eb;
-  color: #4b5563;
+  color: #4b5563 !important;
   box-shadow: 0 6px 0 #d1d5db;
 }
 .cree-form-container .submit-btn.cree-prev-step:active {
@@ -295,7 +306,7 @@ body .cree-form-container {
 /* Standalone Variant: Neon Emerald with Outer Ring */
 .thai-btn-emerald {
   background-color: var(--thai-emerald);
-  color: var(--thai-emerald-dark);
+  color: var(--thai-emerald-dark) !important;
   border: 4px solid var(--thai-emerald-ring); /* Mimics contrasting outer ring */
   box-shadow: 0 6px 0 var(--thai-emerald-ring-shadow); /* Shadow applied to ring */
 }
@@ -306,7 +317,7 @@ body .cree-form-container {
 /* Standalone Variant: Thai Saffron */
 .thai-btn-saffron {
   background-color: var(--thai-saffron);
-  color: var(--thai-saffron-dark);
+  color: var(--thai-saffron-dark) !important;
   box-shadow: 0 6px 0 var(--thai-saffron-shadow);
 }
 .thai-btn-saffron:active {
@@ -316,7 +327,7 @@ body .cree-form-container {
 /* Standalone Variant: Thai Lotus (Red/Pink) */
 .thai-btn-lotus {
   background-color: var(--thai-lotus);
-  color: #fff;
+  color: #fff !important;
   box-shadow: 0 6px 0 var(--thai-lotus-shadow);
 }
 .thai-btn-lotus:active {

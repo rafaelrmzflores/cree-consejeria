@@ -24,10 +24,22 @@ body .cree-form-container {
   position: relative; /* For loading overlay */
 }
 
+/* THEME OVERRIDE: Force high-contrast text against white container */
+.cree-form-container,
+.cree-form-container p,
+.cree-form-container span,
+.cree-form-container li,
+.cree-form-container h2,
+.cree-form-container h3,
+.cree-form-container label,
+.cree-form-container div {
+  color: var(--cree-text) !important;
+}
+
 /* Headings */
 .cree-form-container h1 {
   font-size: 26px;
-  color: var(--cree-primary);
+  color: var(--cree-primary) !important; /* Protected from theme overrides */
   margin-bottom: 25px;
   text-align: center;
   border-bottom: 3px solid var(--cree-bg-light);
