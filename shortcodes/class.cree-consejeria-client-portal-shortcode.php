@@ -120,8 +120,12 @@ class CREE_Consejeria_Client_Portal {
                 <button class="cree-client-nav-btn active cree-bilingual-text" data-en="📋 My Forms" data-es="📋 Mis Formularios" onclick="creeSwitchClientTab(event, 'client-tab-forms')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: bold; cursor: pointer; white-space: nowrap;">📋 My Forms</button>
                 <button class="cree-client-nav-btn cree-bilingual-text" data-en="📅 Appointments" data-es="📅 Citas" onclick="creeSwitchClientTab(event, 'client-tab-appointments')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">📅 Appointments</button>
                 <button class="cree-client-nav-btn cree-bilingual-text" data-en="🎯 Treatment Plan" data-es="🎯 Plan de Tratamiento" onclick="creeSwitchClientTab(event, 'client-tab-plan')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">🎯 Treatment Plan</button>
+                <?php if ( current_user_can( 'access_s2member_level1' ) ) : ?>
+                    <button class="cree-client-nav-btn cree-bilingual-text cree-load-courses-trigger" data-en="🎓 Courses" data-es="🎓 Cursos" onclick="creeSwitchClientTab(event, 'cree-courses-view')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">🎓 Courses</button>
+                <?php endif; ?>
                 <button class="cree-client-nav-btn cree-bilingual-text" data-en="💳 Billing" data-es="💳 Facturación" onclick="creeSwitchClientTab(event, 'client-tab-billing')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">💳 Billing</button>
                 <button class="cree-client-nav-btn cree-bilingual-text" data-en="⚙️ Settings" data-es="⚙️ Ajustes" onclick="creeSwitchClientTab(event, 'client-tab-settings')" style="padding: 10px 16px; background: none; border: none; border-bottom: 3px solid transparent; color: #4b5563; font-weight: bold; cursor: pointer; white-space: nowrap;">⚙️ Settings</button>
+
             </div>
 
             <!-- TAB 1: FORMS -->
@@ -298,6 +302,11 @@ class CREE_Consejeria_Client_Portal {
                     <h3 class="cree-bilingual-text" data-en="Form Response Details" data-es="Detalles de Respuesta del Formulario" style="margin-top:0; color:#1e3a8a;">Form Response Details</h3>
                     <div id="cree-form-modal-content"><p class="cree-bilingual-text" data-en="Loading form content..." data-es="Cargando contenido del formulario...">Loading form content...</p></div>
                 </div>
+            </div>
+
+            <!-- TAB 6: COURSES -->
+            <div id="cree-courses-view" class="cree-client-tab-content" style="display:none;">
+                <!-- AJAX content will load here -->
             </div>
 
         </div>
@@ -530,6 +539,72 @@ class CREE_Consejeria_Client_Portal {
                 // Translate and reveal when the form finishes loading
                 creeApplyLanguage(creeCurrentLang);
             });
+
+            jQuery(document).ready(function($) {
+
+            // 1. Load Courses UI when the Courses tab is clicked
+            $('.cree-load-courses-trigger').on('click', function() {
+                var $container = $('#cree-courses-view');
+                
+                // Only load if it's currently empty to save server requests
+                if ( $container.is(':empty') || $container.html().trim() === '<!-- AJAX content will load here -->' ) {
+                    $container.html('<div style="text-align:center; padding: 60px;"><div class="cree-loading-spinner" style="margin: 0 auto 15px auto;"></div><p class="cree-bilingual-text" data-en="Loading curriculum..." data-es="Cargando plan de estudios..." style="color: #6b7280; font-weight:bold;">Loading curriculum...</p></div>');
+                    creeApplyLanguage(creeCurrentLang); // Translate the loading text
+                    
+                    $.ajax({
+                        url: CREE_INTAKE_FORM.ajax_url, 
+                        type: 'POST',
+                        data: { action: 'cree_load_courses_ui' },
+                        success: function(response) {
+                            if(response.success) {
+                                $container.html(response.data);
+                                creeApplyLanguage(creeCurrentLang); // Translate the loaded UI
+                            }
+                        }
+                    });
+                }
+            });
+
+            // 2. Handle clicks on the Curriculum Sidebar buttons
+            $(document).on('click', '.cree-load-video-btn', function() {
+                var videoUrl = $(this).data('video');
+                
+                // Visual feedback on the active button
+                $('.cree-load-video-btn').css({ 'border-color': 'var(--cree-border)', 'box-shadow': 'none' });
+                $(this).css({ 'border-color': 'var(--thai-sapphire)', 'box-shadow': '0 0 0 2px var(--thai-sapphire-tint)' });
+
+                // Swap the placeholder for the actual video player
+                $('#cree-player-placeholder').hide();
+                var $iframeContainer = $('#cree-iframe-container');
+                var $iframe = $('#cree-video-iframe');
+
+                // Only reload if clicking a different video
+                if ( $iframe.attr('src') !== videoUrl ) {
+                    $iframe.attr('src', videoUrl);
+                }
+                
+                $iframeContainer.fadeIn();
+            });
+
+            // 3. Handle Curriculum Accordion Toggles
+            $(document).on('click', '.cree-accordion-toggle', function() {
+                var $button = $(this);
+                var $content = $button.next('.cree-accordion-content');
+                var $icon = $button.find('.cree-accordion-icon');
+
+                // Toggle the list open/closed smoothly over 250ms
+                $content.slideToggle(250, function() {
+                    // After the animation finishes, flip the arrow to match the new state
+                    if ($content.is(':visible')) {
+                        $icon.text('▲');
+                    } else {
+                        $icon.text('▼');
+                    }
+                });
+            });
+
+        });
+
 
         </script>
         <?php

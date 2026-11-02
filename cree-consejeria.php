@@ -130,6 +130,19 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
             add_action( 'wp_ajax_cree_update_client_password', array( $this, 'ajax_update_client_password' ) );
 
             add_action( 'plugins_loaded', array( $this, 'check_plugin_version' ) );
+
+            // add_action( 'init', array($this, 'cree_register_course_modules_cpt' ) );
+            // add_action( 'add_meta_boxes', array($this, 'cree_add_course_module_meta_boxes' ) );
+            // add_action( 'save_post_cree_course_module', array($this, 'cree_save_course_module_meta' ) );
+            // add_action( 'wp_ajax_cree_load_courses_ui', array($this, 'cree_load_courses_ui_callback' ) );
+
+            add_action( 'init', array( $this, 'register_course_modules_cpt' ) );
+            add_action( 'add_meta_boxes', array( $this, 'add_course_module_meta_boxes' ) );
+            add_action( 'save_post_cree_course_module', array( $this, 'save_course_module_meta' ) );
+            add_action( 'wp_ajax_cree_load_courses_ui', array( $this, 'load_courses_ui_callback' ) );
+
+            add_action( 'init', array( $this, 'register_course_taxonomy' ) );
+
         }
 
         public function define_constants() {
@@ -4233,6 +4246,251 @@ if ( ! class_exists( 'CREE_Consejeria_CFM' ) ) {
 
             wp_send_json_success( array( 'message' => 'Password updated successfully!' ) );
         }
+
+        /* ==========================================================================
+       VERSION 7.0: COURSE MODULES CPT & META BOXES
+       ========================================================================== */
+    public function register_course_modules_cpt() {
+        $args = array(
+            'labels'              => array(
+                'name'          => 'Course Modules',
+                'singular_name' => 'Course Module',
+                'add_new_item'  => 'Add New Course Module',
+                'edit_item'     => 'Edit Module',
+            ),
+            'public'              => false,
+            'show_ui'             => true,
+            'show_in_menu'        => true,
+            'menu_position'       => 30,
+            'menu_icon'           => 'dashicons-video-alt3',
+            'supports'            => array( 'title', 'page-attributes' ),
+        );
+        register_post_type( 'cree_course_module', $args );
+    }
+
+    public function add_course_module_meta_boxes() {
+        // THE FIX: Uses array( $this, 'method_name' ) instead of a string
+        add_meta_box( 'cree_module_details', 'Module Configuration', array( $this, 'module_details_callback' ), 'cree_course_module', 'normal', 'high' );
+    }
+
+    public function module_details_callback( $post ) {
+        wp_nonce_field( 'cree_save_module_details', 'cree_module_nonce' );
+        $title_es = get_post_meta( $post->ID, '_cree_title_es', true );
+        $video_url = get_post_meta( $post->ID, '_cree_video_url', true );
+        $required_ccap = get_post_meta( $post->ID, '_cree_required_ccap', true );
+        ?>
+        <div style="margin-bottom: 15px;">
+            <label style="font-weight:bold;">Spanish Title:</label>
+            <input type="text" name="cree_title_es" value="<?php echo esc_attr( $title_es ); ?>" style="width:100%;" />
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label style="font-weight:bold;">Video Embed URL (Vimeo/Wistia):</label>
+            <input type="url" name="cree_video_url" value="<?php echo esc_url( $video_url ); ?>" style="width:100%;" placeholder="https://player.vimeo.com/video/..." />
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label style="font-weight:bold;">Required s2Member CCAP (slug only):</label>
+            <input type="text" name="cree_required_ccap" value="<?php echo esc_attr( $required_ccap ); ?>" style="width:100%;" placeholder="e.g., course_anxiety" />
+        </div>
+        <?php
+    }
+
+    public function save_course_module_meta( $post_id ) {
+        if ( ! isset( $_POST['cree_module_nonce'] ) || ! wp_verify_nonce( $_POST['cree_module_nonce'], 'cree_save_module_details' ) ) return;
+        if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+        if ( ! current_user_can( 'edit_post', $post_id ) ) return;
+
+        if ( isset( $_POST['cree_title_es'] ) ) update_post_meta( $post_id, '_cree_title_es', sanitize_text_field( $_POST['cree_title_es'] ) );
+        if ( isset( $_POST['cree_video_url'] ) ) update_post_meta( $post_id, '_cree_video_url', esc_url_raw( $_POST['cree_video_url'] ) );
+        if ( isset( $_POST['cree_required_ccap'] ) ) {
+            $ccap = str_replace( 'access_s2member_ccap_', '', sanitize_text_field( $_POST['cree_required_ccap'] ) ); 
+            update_post_meta( $post_id, '_cree_required_ccap', $ccap );
+        }
+    }
+
+    /* ==========================================================================
+       VERSION 7.0: AJAX HANDLER
+       ========================================================================== */
+    public function load_courses_ui_callback_deprecated() {
+        $user = wp_get_current_user();
+        
+        $modules = new WP_Query( array(
+            'post_type'      => 'cree_course_module',
+            'posts_per_page' => -1,
+            'orderby'        => 'menu_order',
+            'order'          => 'ASC'
+        ) );
+
+        ob_start();
+        ?>
+        <div class="cree-course-container" style="display: flex; gap: 20px; flex-wrap: wrap;">
+            
+            <!-- SIDEBAR -->
+            <div class="cree-course-sidebar" style="flex: 1; min-width: 250px; border-right: 2px solid var(--cree-bg-light); padding-right: 15px;">
+                <h3 class="cree-bilingual-text" data-en="Curriculum" data-es="Plan de Estudios" style="color: var(--cree-primary) !important;">Curriculum</h3>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    <?php 
+                    if ( $modules->have_posts() ) :
+                        while ( $modules->have_posts() ) : $modules->the_post();
+                            $title_en = get_the_title();
+                            $title_es = get_post_meta( get_the_ID(), '_cree_title_es', true ) ?: $title_en;
+                            $video_url = get_post_meta( get_the_ID(), '_cree_video_url', true );
+                            $ccap = get_post_meta( get_the_ID(), '_cree_required_ccap', true );
+                            
+                            $has_access = $user->has_cap( 'access_s2member_ccap_' . $ccap );
+                            ?>
+                            <li style="margin-bottom: 12px;">
+                                <?php if ( $has_access ) : ?>
+                                    <button class="cree-load-video-btn" data-video="<?php echo esc_url( $video_url ); ?>" style="width: 100%; text-align: left; background: var(--cree-bg-light); border: 1px solid var(--cree-border); padding: 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                                        <span class="cree-bilingual-text" data-en="<?php echo esc_attr($title_en); ?>" data-es="<?php echo esc_attr($title_es); ?>" style="font-weight: bold; color: var(--cree-text) !important;"><?php echo esc_html($title_en); ?></span>
+                                    </button>
+                                <?php else : ?>
+                                    <div style="width: 100%; text-align: left; background: #fff; border: 1px dashed var(--cree-border); padding: 10px; border-radius: 6px; opacity: 0.6;">
+                                        <span class="cree-bilingual-text" data-en="<?php echo esc_attr($title_en); ?> (Locked)" data-es="<?php echo esc_attr($title_es); ?> (Bloqueado)" style="color: var(--cree-text) !important;"><?php echo esc_html($title_en); ?> 🔒</span>
+                                    </div>
+                                <?php endif; ?>
+                            </li>
+                        <?php 
+                        endwhile; 
+                        wp_reset_postdata();
+                    else: ?>
+                        <p class="cree-bilingual-text" data-en="No modules available yet." data-es="No hay módulos disponibles aún.">No modules available yet.</p>
+                    <?php endif; ?>
+                </ul>
+            </div>
+
+            <!-- PLAYER AREA -->
+            <div class="cree-video-player-area" id="cree-active-player" style="flex: 3; min-width: 300px;">
+                <div id="cree-player-placeholder" style="text-align: center; padding: 60px 20px; background: var(--cree-bg-light); border-radius: 8px; border: 2px dashed var(--cree-border);">
+                    <span style="font-size: 30px; display: block; margin-bottom: 15px;">▶️</span>
+                    <p class="cree-bilingual-text" data-en="Select a module from the curriculum to begin." data-es="Seleccione un módulo del plan de estudios para comenzar." style="color: var(--cree-text) !important; font-weight: bold;">Select a module from the curriculum to begin.</p>
+                </div>
+                
+                <div id="cree-iframe-container" style="display: none; position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                    <iframe id="cree-video-iframe" src="" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+                </div>
+            </div>
+
+        </div>
+        <?php
+        wp_send_json_success( ob_get_clean() );
+    }
+
+    public function load_courses_ui_callback() {
+        $user = wp_get_current_user();
+        ob_start();
+        ?>
+        <div class="cree-course-container" style="display: flex; gap: 20px; flex-wrap: wrap;">
+            
+            <!-- SIDEBAR (ACCORDION STYLE) -->
+            <div class="cree-course-sidebar" style="flex: 1; min-width: 250px; border-right: 2px solid var(--cree-bg-light); padding-right: 15px;">
+                <h3 class="cree-bilingual-text" data-en="Curriculum" data-es="Plan de Estudios" style="color: var(--cree-primary) !important; margin-top: 0;">Curriculum</h3>
+                
+                <?php 
+                $courses = get_terms( array(
+                    'taxonomy'   => 'cree_course_category',
+                    'hide_empty' => true,
+                ) );
+
+                if ( ! empty( $courses ) && ! is_wp_error( $courses ) ) :
+                    $is_first = true; // Track the first item to leave it open
+
+                    foreach ( $courses as $course ) :
+                        $display_style = $is_first ? 'block' : 'none';
+                        $toggle_icon   = $is_first ? '▲' : '▼';
+                        ?>
+                        <div class="cree-course-group" style="margin-bottom: 12px; background: var(--cree-bg-light); border-radius: 6px; border: 1px solid var(--cree-border); overflow: hidden;">
+                            
+                            <!-- Accordion Toggle Button -->
+                            <button class="cree-accordion-toggle" style="width: 100%; display: flex; justify-content: space-between; align-items: center; background: transparent; border: none; padding: 12px 15px; cursor: pointer; border-left: 4px solid var(--thai-sapphire);">
+                                <span style="font-size: 15px; font-weight: bold; color: var(--cree-text) !important;">
+                                    <?php echo esc_html( $course->name ); ?>
+                                </span>
+                                <span class="cree-accordion-icon" style="font-size: 12px; color: var(--cree-text);"><?php echo $toggle_icon; ?></span>
+                            </button>
+                            
+                            <!-- Accordion Content (Modules List) -->
+                            <ul class="cree-accordion-content" style="list-style: none; padding: 12px 15px; margin: 0; display: <?php echo $display_style; ?>; background: #fff; border-top: 1px solid var(--cree-border);">
+                                <?php
+                                $modules = new WP_Query( array(
+                                    'post_type'      => 'cree_course_module',
+                                    'posts_per_page' => -1,
+                                    'orderby'        => 'menu_order',
+                                    'order'          => 'ASC',
+                                    'tax_query'      => array(
+                                        array(
+                                            'taxonomy' => 'cree_course_category',
+                                            'field'    => 'term_id',
+                                            'terms'    => $course->term_id,
+                                        )
+                                    )
+                                ) );
+
+                                if ( $modules->have_posts() ) :
+                                    while ( $modules->have_posts() ) : $modules->the_post();
+                                        $title_en = get_the_title();
+                                        $title_es = get_post_meta( get_the_ID(), '_cree_title_es', true ) ?: $title_en;
+                                        $video_url = get_post_meta( get_the_ID(), '_cree_video_url', true );
+                                        $ccap = get_post_meta( get_the_ID(), '_cree_required_ccap', true );
+                                        
+                                        $has_access = $user->has_cap( 'access_s2member_ccap_' . $ccap );
+                                        ?>
+                                        <li style="margin-bottom: 10px;">
+                                            <?php if ( $has_access ) : ?>
+                                                <button class="cree-load-video-btn" data-video="<?php echo esc_url( $video_url ); ?>" style="width: 100%; text-align: left; background: #fff; border: 1px solid var(--cree-border); padding: 8px 10px; border-radius: 4px; cursor: pointer; transition: all 0.2s;">
+                                                    <span class="cree-bilingual-text" data-en="<?php echo esc_attr($title_en); ?>" data-es="<?php echo esc_attr($title_es); ?>" style="font-weight: bold; color: var(--cree-text) !important; font-size: 13px;"><?php echo esc_html($title_en); ?></span>
+                                                </button>
+                                            <?php else : ?>
+                                                <div style="width: 100%; text-align: left; background: #fafafa; border: 1px dashed var(--cree-border); padding: 8px 10px; border-radius: 4px; opacity: 0.6;">
+                                                    <span class="cree-bilingual-text" data-en="<?php echo esc_attr($title_en); ?> (Locked)" data-es="<?php echo esc_attr($title_es); ?> (Bloqueado)" style="color: var(--cree-text) !important; font-size: 13px;"><?php echo esc_html($title_en); ?> 🔒</span>
+                                                </div>
+                                            <?php endif; ?>
+                                        </li>
+                                    <?php 
+                                    endwhile; 
+                                    wp_reset_postdata();
+                                endif; ?>
+                            </ul>
+                        </div>
+                    <?php 
+                    $is_first = false; // Set to false so subsequent courses default to closed
+                    endforeach;
+                else: ?>
+                    <p class="cree-bilingual-text" data-en="No courses available yet." data-es="No hay cursos disponibles aún.">No courses available yet.</p>
+                <?php endif; ?>
+            </div>
+
+            <!-- PLAYER AREA -->
+            <div class="cree-video-player-area" id="cree-active-player" style="flex: 3; min-width: 300px;">
+                <div id="cree-player-placeholder" style="text-align: center; padding: 60px 20px; background: var(--cree-bg-light); border-radius: 8px; border: 2px dashed var(--cree-border);">
+                    <span style="font-size: 30px; display: block; margin-bottom: 15px;">▶️</span>
+                    <p class="cree-bilingual-text" data-en="Select a module from the curriculum to begin." data-es="Seleccione un módulo del plan de estudios para comenzar." style="color: var(--cree-text) !important; font-weight: bold;">Select a module from the curriculum to begin.</p>
+                </div>
+                
+                <div id="cree-iframe-container" style="display: none; position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                    <iframe id="cree-video-iframe" src="" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+                </div>
+            </div>
+
+        </div>
+        <?php
+        wp_send_json_success( ob_get_clean() );
+    }
+
+    public function register_course_taxonomy() {
+        $args = array(
+            'labels'            => array(
+                'name'          => 'Courses (Categories)',
+                'singular_name' => 'Course Category',
+                'menu_name'     => 'Courses',
+                'add_new_item'  => 'Add New Course',
+            ),
+            'hierarchical'      => true, // Acts like categories, not tags
+            'show_ui'           => true,
+            'show_admin_column' => true,
+            'rewrite'           => array( 'slug' => 'course-category' ),
+        );
+        register_taxonomy( 'cree_course_category', 'cree_course_module', $args );
+    }
 
         private function get_encryption_key() {
             $key = get_option( 'cree_consejeria_encryption_key' );
